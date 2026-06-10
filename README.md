@@ -1,9 +1,9 @@
 # Mievoh - Hệ Thống Đặt Vé Xem Phim (Mievoh)
 
 <p align="center">
-  <img src="assets/images/mievoh/mievoh_logo.png" alt="Mievoh Logo" height="80" align="middle" />
+  <img src="Mobile/assets/images/mievoh/mievoh_logo.png" alt="Mievoh Logo" height="80" align="middle" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="assets/images/mievoh/mievoh_text.png" alt="Mievoh Text" height="40" align="middle" />
+  <img src="Mobile/assets/images/mievoh/mievoh_text.png" alt="Mievoh Text" height="40" align="middle" />
 </p>
 
 Chào mừng bạn đến với **Mievoh Mobile** - ứng dụng đặt vé xem phim thông minh, mượt mà và trực quan được xây dựng trên nền tảng Expo và React Native.
@@ -47,7 +47,9 @@ Trước khi khởi chạy ứng dụng, bạn cần cấu hình đường dẫn
 ### Các bước khởi chạy
 
 1. **Cài đặt các thư viện phụ thuộc (Dependencies):**
+   Di chuyển vào thư mục dự án `Mobile` và cài đặt:
    ```bash
+   cd Mobile
    npm install
    ```
 
