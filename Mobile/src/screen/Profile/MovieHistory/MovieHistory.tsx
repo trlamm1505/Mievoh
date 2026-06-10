@@ -8,6 +8,7 @@ import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
 import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 import { BookingRepository } from '../../../SQLite/repositories/BookingRepository';
+import LoadingScreen from '../../Loading/LoadingScreen';
 
 export default function MovieHistory() {
   const navigation = useAppNavigation();
@@ -20,6 +21,53 @@ export default function MovieHistory() {
   const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
   const [history, setHistory] = useState<BookingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [showLoading, setShowLoading] = useState(false);
+  const [wasOffline, setWasOffline] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const checkConnection = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        const response = await fetch('https://clients3.google.com/generate_204', {
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        clearTimeout(timeoutId);
+        
+        if (response.status === 204 || response.ok) {
+          if (active) {
+            setWasOffline((prev) => {
+              if (prev) {
+                setShowLoading(true);
+              }
+              return false;
+            });
+          }
+        } else {
+          if (active) {
+            setWasOffline(true);
+          }
+        }
+      } catch (error) {
+        if (active) {
+          setWasOffline(true);
+        }
+      }
+    };
+
+    checkConnection();
+    const interval = setInterval(checkConnection, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user?.username) {
@@ -346,6 +394,9 @@ export default function MovieHistory() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+      {showLoading && (
+        <LoadingScreen onFinished={() => navigation.goToHome()} />
+      )}
     </SafeAreaView>
   );
 }
