@@ -1,18 +1,33 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Image, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../contextAPI/Auth/AuthContext';
 import { useAppNavigation } from '../../navigation/navigation';
 import { GradientText } from '../../components/GradientComponents/GradientComponents';
 import { toast } from '../../components/Toast/Toast';
-import { loginApi, redirectToGoogleApi, AuthResponse } from '../../axios/auth';
+import { loginApi, googleLoginMobileApi, AuthResponse } from '../../axios/auth';
 import Button from '../../components/Button/Button';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../contextAPI/Language/LanguageContext';
-import { WebView } from 'react-native-webview';
-import { API_BASE_URL } from '../../config/constant/constant';
+let GoogleSignin: any;
+let statusCodes: any;
+let isGoogleSigninSupported = false;
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const GoogleSigninModule = require('@react-native-google-signin/google-signin');
+  GoogleSignin = GoogleSigninModule.GoogleSignin;
+  statusCodes = GoogleSigninModule.statusCodes;
+
+  GoogleSignin.configure({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+  });
+  isGoogleSigninSupported = true;
+} catch (error) {
+  console.warn("GoogleSignin is not supported in this environment (e.g. Expo Go):", error);
+}
 
 export default function Login() {
   const navigation = useAppNavigation();
@@ -27,78 +42,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isUserFocused, setIsUserFocused] = useState(false);
   const [isPassFocused, setIsPassFocused] = useState(false);
-  const [isGoogleModalVisible, setIsGoogleModalVisible] = useState(false);
   const [isProcessingGoogle, setIsProcessingGoogle] = useState(false);
-
-  const webViewRef = useRef<WebView>(null);
-
-  const processGoogleLogin = (url: string) => {
-    if (isProcessingGoogle) return;
-    setIsProcessingGoogle(true);
-
-    const getQueryParam = (urlStr: string, paramName: string) => {
-      const rx = new RegExp("[?&]" + paramName + "=([^&#]*)", "i");
-      const m = urlStr.match(rx);
-      return m ? m[1] : null;
-    };
-
-    const token = getQueryParam(url, 'token');
-    const usernameParam = getQueryParam(url, 'username');
-    const fullName = getQueryParam(url, 'fullName');
-    const email = getQueryParam(url, 'email');
-    const avatar = getQueryParam(url, 'avatar');
-
-    if (token && usernameParam) {
-      const authData: AuthResponse = {
-        token: {
-          accessToken: token,
-          refreshToken: token
-        },
-        user: {
-          username: usernameParam,
-          fullName: fullName ? decodeURIComponent(fullName) : null,
-          email: email || null,
-          phoneNumber: null,
-          avatar: avatar || null,
-          userType: 'user',
-          gender: null,
-          dob: null,
-          address: null,
-          cccd: null
-        }
-      };
-
-      setIsGoogleModalVisible(false);
-
-      login(authData).then(() => {
-        toast.success(language === 'vi' ? 'Đăng nhập bằng Google thành công!' : 'Google login successful!');
-        navigation.goToHome();
-      }).catch(err => {
-        console.error("Google login context error:", err);
-        toast.error(language === 'vi' ? 'Không thể hoàn tất đăng nhập bằng Google.' : 'Failed to complete Google login.');
-        setIsProcessingGoogle(false);
-      });
-    } else {
-      setIsProcessingGoogle(false);
-    }
-  };
-
-  const handleNavigationStateChange = (webViewState: any) => {
-    const url = webViewState.url;
-    if (url.includes('/login?token=')) {
-      webViewRef.current?.stopLoading();
-      processGoogleLogin(url);
-    }
-  };
-
-  const handleShouldStartLoad = (request: any) => {
-    if (request.url.includes('/login?token=')) {
-      webViewRef.current?.stopLoading();
-      processGoogleLogin(request.url);
-      return false;
-    }
-    return true;
-  };
 
   useEffect(() => {
     const token = params.token as string;
@@ -156,8 +100,57 @@ export default function Login() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    setIsGoogleModalVisible(true);
+  const handleGoogleLogin = async () => {
+    if (!isGoogleSigninSupported) {
+      toast.error(
+        language === 'vi'
+          ? 'Đăng nhập Google Native không được hỗ trợ trên Expo Go. Bạn cần chạy Development Build (npx expo run:android hoặc run:ios)!'
+          : 'Native Google Sign-In is not supported on Expo Go. Please run using a Development Build!'
+      );
+      return;
+    }
+    if (isProcessingGoogle) return;
+    setIsProcessingGoogle(true);
+    try {
+      // 1. Kiểm tra Google Play Services (bắt buộc trên Android)
+      await GoogleSignin.hasPlayServices();
+
+      // 2. Mở Popup chọn tài khoản Google (Giao diện Native)
+      const userInfo = await GoogleSignin.signIn();
+
+      // 3. Rút trích idToken (hỗ trợ cả các phiên bản SDK cũ và mới)
+      const idToken = userInfo.data?.idToken || (userInfo as any).idToken;
+
+      if (idToken) {
+        // 4. Gửi idToken này lên API Backend
+        const res = await googleLoginMobileApi(idToken);
+
+        // 5. Lưu Token & User vào AuthContext của App
+        await login(res);
+
+        toast.success(language === 'vi' ? 'Đăng nhập bằng Google thành công!' : 'Google login successful!');
+        navigation.goToHome();
+      } else {
+        throw new Error('No idToken found in Google Sign-In response');
+      }
+    } catch (error: any) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        toast.error(language === 'vi' ? 'Đã hủy đăng nhập bằng Google.' : 'Google sign in cancelled.');
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        toast.error(language === 'vi' ? 'Tiến trình đăng nhập đang chạy...' : 'Sign in is already in progress.');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        toast.error(language === 'vi' ? 'Thiết bị không hỗ trợ Google Play Services.' : 'Google Play Services not available.');
+      } else {
+        const serverMessage = error?.response?.data?.message;
+        const errorMsg = Array.isArray(serverMessage) 
+          ? serverMessage.join('\n') 
+          : serverMessage || (language === 'vi' ? 'Đăng nhập bằng Google thất bại!' : 'Google login failed!');
+        toast.error(errorMsg);
+        console.error('Google Sign-In Error:', error);
+      }
+    } finally {
+      setIsProcessingGoogle(false);
+    }
   };
 
   const handleSignUpPress = () => {
@@ -367,49 +360,7 @@ export default function Login() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Google Login WebView Modal */}
-      <Modal
-        visible={isGoogleModalVisible}
-        animationType="slide"
-        onRequestClose={() => setIsGoogleModalVisible(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: isDark ? '#0F0C20' : '#FFFFFF' }}>
-          {/* Header */}
-          <View 
-            style={{ 
-              height: Platform.OS === 'ios' ? 90 : 60, 
-              paddingTop: Platform.OS === 'ios' ? 40 : 10,
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              borderBottomWidth: 1,
-              borderColor: isDark ? '#2E2856' : '#E5E7EB',
-              backgroundColor: isDark ? '#1D183B' : '#FFFFFF',
-              paddingHorizontal: 16
-            }}
-          >
-            <TouchableOpacity onPress={() => setIsGoogleModalVisible(false)}>
-              <Ionicons name="close" size={24} color={isDark ? '#F3F4F6' : '#1F2937'} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: isDark ? '#F3F4F6' : '#1F2937' }}>
-              Google Login
-            </Text>
-            <View style={{ width: 24 }} />
-          </View>
 
-          {/* WebView */}
-          <WebView
-            ref={webViewRef}
-            source={{ uri: `${API_BASE_URL}/auth/google` }}
-            userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            onNavigationStateChange={handleNavigationStateChange}
-            onShouldStartLoadWithRequest={handleShouldStartLoad}
-            style={{ flex: 1 }}
-          />
-        </View>
-      </Modal>
     </LinearGradient>
   );
 }

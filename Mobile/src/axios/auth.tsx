@@ -85,6 +85,15 @@ export const googleCallbackApi = async (): Promise<AuthResponse> => {
   return response.data;
 };
 
+/**
+ * API đăng nhập bằng Google idToken từ Mobile.
+ * Endpoint: POST /auth/google/mobile
+ */
+export const googleLoginMobileApi = async (idToken: string): Promise<AuthResponse> => {
+  const response = await api.post<AuthResponse>('/auth/google/mobile', { idToken });
+  return response.data;
+};
+
 export interface ResetPasswordPayload {
   email: string;
   newPassword: string;
