@@ -34,10 +34,10 @@ export default function Header() {
   const isDark = theme === 'dark';
 
   // Lắng nghe socket
-  useAppSocket(isLoggedIn && user ? user.username : '');
+  useAppSocket(isLoggedIn && user ? user.email : '');
 
   const fetchNotifications = useCallback(async () => {
-    if (!isLoggedIn || !user?.username) return;
+    if (!isLoggedIn || !user?.email) return;
     try {
       const res = await getMyNotificationsApi({ page: 1, pageSize: 20 });
       if (res) {
@@ -51,17 +51,17 @@ export default function Header() {
     } catch (e) {
       console.error("Failed to fetch mobile notifications:", e);
     }
-  }, [isLoggedIn, user?.username]);
+  }, [isLoggedIn, user?.email]);
 
   useEffect(() => {
-    if (isLoggedIn && user?.username) {
+    if (isLoggedIn && user?.email) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchNotifications();
     } else {
       setNotifications([]);
       setUnreadCount(0);
     }
-  }, [isLoggedIn, user?.username, fetchNotifications]);
+  }, [isLoggedIn, user?.email, fetchNotifications]);
 
   useEffect(() => {
     const subscription = DeviceEventEmitter.addListener('sync-notifications', () => {
@@ -109,7 +109,7 @@ export default function Header() {
               <Text className="text-[13px] text-gray-500 dark:text-gray-400 font-medium">
                 {language === 'vi' ? 'Xin chào,' : 'Hello,'}
               </Text>
-              <Text className="text-[15px] font-bold text-gray-900 dark:text-white">{user.fullName || user.username}</Text>
+              <Text className="text-[15px] font-bold text-gray-900 dark:text-white">{user.fullName || user.email}</Text>
             </View>
           </View>
         ) : (

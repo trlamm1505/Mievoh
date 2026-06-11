@@ -2,7 +2,7 @@ import api from '../config/axios/axiosConfig';
 
 export interface Notification {
   notificationId: string;
-  username: string;
+  email: string;
   title: string;
   message: string;
   link: string | null;

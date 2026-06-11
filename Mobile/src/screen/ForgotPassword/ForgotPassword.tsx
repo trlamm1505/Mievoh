@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAppNavigation } from '../../navigation/navigation';
 import { GradientText } from '../../components/GradientComponents/GradientComponents';
 import Button from '../../components/Button/Button';
-import { validateEmail, validatePassword, validateConfirmPassword } from '../../validation/validation';
+import { validateEmail, validatePassword, validateConfirmPassword, setValidationLanguage } from '../../validation/validation';
 import { toast } from '../../components/Toast/Toast';
-import { verifyEmailApi, resetPasswordApi } from '../../axios/auth';
+import { forgotPasswordApi, verifyResetOtpApi, resetPasswordApi } from '../../axios/auth';
+import OtpModal from '../../components/OtpModal/OtpModal';
 import { useTheme } from '../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../contextAPI/Language/LanguageContext';
 
@@ -20,6 +21,24 @@ export default function ForgotPassword() {
   const [step, setStep] = useState(1); // 1: Nhập Email, 2: Đặt lại Mật khẩu
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
+
+  // OTP and Token states
+  const [resetToken, setResetToken] = useState('');
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpResendLoading, setOtpResendLoading] = useState(false);
+
+  useEffect(() => {
+    if (otpCode === '') {
+      setOtpError(null);
+    }
+  }, [otpCode]);
+
+  useEffect(() => {
+    setValidationLanguage(language);
+  }, [language]);
 
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
@@ -70,17 +89,63 @@ export default function ForgotPassword() {
     }
 
     try {
-      await verifyEmailApi(email.trim());
-      toast.success(language === 'vi' ? 'Xác minh email thành công' : 'Email verified successfully');
-      setTimeout(() => {
-        setStep(2);
-      }, 1500);
+      await forgotPasswordApi(email.trim());
+      toast.success(language === 'vi' ? 'Mã OTP đã được gửi đến email của bạn!' : 'OTP code has been sent to your email!');
+      setOtpCode('');
+      setOtpError(null);
+      setShowOtpModal(true);
     } catch (error: any) {
       const serverMessage = error?.response?.data?.message;
       const errorMsg = Array.isArray(serverMessage) 
         ? serverMessage.join('\n') 
-        : serverMessage || (language === 'vi' ? 'Xác minh email thất bại. Vui lòng kiểm tra lại!' : 'Email verification failed. Please check again!');
+        : serverMessage || (language === 'vi' ? 'Yêu cầu khôi phục mật khẩu thất bại. Vui lòng kiểm tra lại!' : 'Password reset request failed. Please check again!');
       toast.error(errorMsg);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) return;
+    setOtpLoading(true);
+    setOtpError(null);
+    try {
+      const res = await verifyResetOtpApi({
+        email: email.trim(),
+        otp: otpCode
+      });
+      setResetToken(res.resetToken);
+      toast.success(language === 'vi' ? 'Xác thực OTP thành công!' : 'OTP verified successfully!');
+      setShowOtpModal(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+      setTimeout(() => {
+        setStep(2);
+      }, 500);
+    } catch (error: any) {
+      const serverMessage = error?.response?.data?.message;
+      const errorMsg = Array.isArray(serverMessage) 
+        ? serverMessage.join('\n') 
+        : serverMessage || (language === 'vi' ? 'Xác thực OTP thất bại. Vui lòng thử lại!' : 'OTP verification failed. Please try again!');
+      setOtpError(errorMsg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpResendLoading(true);
+    try {
+      await forgotPasswordApi(email.trim());
+      toast.success(language === 'vi' ? 'Đã gửi lại mã OTP!' : 'OTP code resent!');
+      setOtpCode('');
+      setOtpError(null);
+    } catch (error: any) {
+      const serverMessage = error?.response?.data?.message;
+      const errorMsg = Array.isArray(serverMessage) 
+        ? serverMessage.join('\n') 
+        : serverMessage || (language === 'vi' ? 'Không thể gửi lại mã OTP. Vui lòng thử lại!' : 'Could not resend OTP. Please try again!');
+      toast.error(errorMsg);
+    } finally {
+      setOtpResendLoading(false);
     }
   };
 
@@ -96,7 +161,7 @@ export default function ForgotPassword() {
 
     try {
       await resetPasswordApi({
-        email: email.trim(),
+        resetToken,
         newPassword: newPassword
       });
       toast.success(language === 'vi' ? 'Mật khẩu đã được đặt lại thành công!' : 'Password reset successfully!');
@@ -108,7 +173,20 @@ export default function ForgotPassword() {
       const errorMsg = Array.isArray(serverMessage) 
         ? serverMessage.join('\n') 
         : serverMessage || (language === 'vi' ? 'Đặt lại mật khẩu thất bại. Vui lòng thử lại!' : 'Password reset failed. Please try again!');
-      toast.error(errorMsg);
+      
+      const lowerMsg = errorMsg.toLowerCase();
+      const isOldPasswordError = lowerMsg.includes('mật khẩu cũ') || 
+                                 lowerMsg.includes('trùng') || 
+                                 lowerMsg.includes('old password') || 
+                                 lowerMsg.includes('previous password') ||
+                                 lowerMsg.includes('current password') ||
+                                 lowerMsg.includes('already used');
+      
+      if (isOldPasswordError) {
+        setNewPasswordError(language === 'vi' ? 'Mật khẩu bị trùng, vui lòng nhập mật khẩu khác' : 'Password matches the old password, please enter a different one');
+      } else {
+        toast.error(errorMsg);
+      }
     }
   };
 
@@ -125,7 +203,8 @@ export default function ForgotPassword() {
   };
 
   const isEmailValid = email.trim().length > 0 && emailError === null;
-  const isResetValid = newPassword.length > 0 && newPasswordError === null && confirmPassword.length > 0 && confirmPasswordError === null;
+  const isNewPasswordValid = newPassword.length >= 5 && newPasswordError === null;
+  const isResetValid = isNewPasswordValid && confirmPassword.length > 0 && confirmPasswordError === null;
 
   return (
     <LinearGradient
@@ -268,7 +347,7 @@ export default function ForgotPassword() {
                 </GradientText>
 
                 {/* New Password Input */}
-                <View className="mb-3">
+                <View style={{ marginBottom: 16 }}>
                   <View 
                     style={{ 
                       borderColor: getBorderColor('newPassword'), 
@@ -306,11 +385,11 @@ export default function ForgotPassword() {
                 </View>
 
                 {/* Confirm Password Input */}
-                <View className="mb-4">
+                <View style={{ marginBottom: 20 }}>
                   <View 
                     style={{ 
                       borderColor: getBorderColor('confirmPassword'), 
-                      backgroundColor: isDark ? '#0F0C20' : '#FAF8FF',
+                      backgroundColor: isNewPasswordValid ? (isDark ? '#0F0C20' : '#FAF8FF') : (isDark ? '#1F1A3A' : '#E5E7EB'),
                       borderWidth: 1
                     }}
                     className="flex-row items-center border rounded-2xl px-4 py-2"
@@ -324,17 +403,18 @@ export default function ForgotPassword() {
                       onChangeText={handleConfirmPasswordChange}
                       onFocus={() => setFocusedField('confirmPassword')}
                       onBlur={() => setFocusedField(null)}
+                      editable={isNewPasswordValid}
                       style={{ color: isDark ? '#F3F4F6' : '#1F2937' }}
                       className="flex-1 text-sm"
                       autoCapitalize="none"
                       autoCorrect={false}
                       spellCheck={false}
                     />
-                    <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} disabled={!isNewPasswordValid}>
                       <Ionicons 
                         name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
                         size={18} 
-                        color="#7B61FF" 
+                        color={isNewPasswordValid ? "#7B61FF" : "#9ca3af"} 
                       />
                     </TouchableOpacity>
                   </View>
@@ -377,6 +457,19 @@ export default function ForgotPassword() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OtpModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        email={email.trim()}
+        otpCode={otpCode}
+        setOtpCode={setOtpCode}
+        otpLoading={otpLoading}
+        otpError={otpError}
+        otpResendLoading={otpResendLoading}
+        onSubmit={handleVerifyOtp}
+        onResend={handleResendOtp}
+      />
     </LinearGradient>
   );
 }

@@ -1,6 +1,6 @@
 export interface BookingEntity {
   bookingId: string;
-  username: string;
+  email: string;
   bookingDate: string;
   totalPrice: number;
   paymentStatus: string;

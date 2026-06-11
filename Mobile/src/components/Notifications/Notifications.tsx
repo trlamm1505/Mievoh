@@ -9,9 +9,9 @@ export interface SocketNotificationPayload {
   link?: string | null;
 }
 
-export const useAppSocket = (username: string) => {
+export const useAppSocket = (email: string) => {
   useEffect(() => {
-    if (!username) return;
+    if (!email) return;
 
     // Kết nối tới Socket server
     if (!socket.connected) {
@@ -20,8 +20,8 @@ export const useAppSocket = (username: string) => {
 
     // Khi kết nối thành công, xin gia nhập vào phòng riêng của user
     const handleConnect = () => {
-      console.log('Socket connected. Joining room for user:', username);
-      socket.emit('join_room', username);
+      console.log('Socket connected. Joining room for user:', email);
+      socket.emit('join_room', email);
     };
 
     const handleConnectError = (err: any) => {
@@ -77,8 +77,8 @@ export const useAppSocket = (username: string) => {
 
     // Clean up kết nối và sự kiện khi unmount hoặc đổi user
     return () => {
-      console.log('Leaving room and disconnecting socket for user:', username);
-      socket.emit('leave_room', username);
+      console.log('Leaving room and disconnecting socket for user:', email);
+      socket.emit('leave_room', email);
       socket.off('connect', handleConnect);
       socket.off('connect_error', handleConnectError);
       socket.off('disconnect', handleDisconnect);
@@ -88,24 +88,24 @@ export const useAppSocket = (username: string) => {
       socket.off('mark_all_as_read', handleNotificationReadAll);
       socket.disconnect();
     };
-  }, [username]);
+  }, [email]);
 };
 
 // Component bao bọc ẩn danh để đặt vào cây React của toàn ứng dụng (nếu cần dùng dạng Component)
-export default function SocketNotificationListener({ username }: { username: string }) {
-  useAppSocket(username);
+export default function SocketNotificationListener({ email }: { email: string }) {
+  useAppSocket(email);
   return null;
 }
 
 /**
  * Gửi sự kiện lên BE để đánh dấu 1 thông báo là đã đọc
  * @param notificationId ID của thông báo
- * @param username Tên đăng nhập của user
+ * @param email Email của user
  */
-export const emitMarkAsRead = (notificationId: string, username: string) => {
+export const emitMarkAsRead = (notificationId: string, email: string) => {
   if (socket.connected) {
-    socket.emit('mark_as_read', { notificationId, username });
-    console.log(`[Socket Emit] mark_as_read -> ID: ${notificationId}, User: ${username}`);
+    socket.emit('mark_as_read', { notificationId, email });
+    console.log(`[Socket Emit] mark_as_read -> ID: ${notificationId}, User: ${email}`);
   } else {
     console.warn('[Socket] Không thể emit mark_as_read: Socket chưa kết nối');
   }
@@ -113,12 +113,12 @@ export const emitMarkAsRead = (notificationId: string, username: string) => {
 
 /**
  * Gửi sự kiện lên BE để đánh dấu tất cả thông báo là đã đọc
- * @param username Tên đăng nhập của user
+ * @param email Email của user
  */
-export const emitMarkAllAsRead = (username: string) => {
+export const emitMarkAllAsRead = (email: string) => {
   if (socket.connected) {
-    socket.emit('mark_all_as_read', { username });
-    console.log(`[Socket Emit] mark_all_as_read -> User: ${username}`);
+    socket.emit('mark_all_as_read', { email });
+    console.log(`[Socket Emit] mark_all_as_read -> User: ${email}`);
   } else {
     console.warn('[Socket] Không thể emit mark_all_as_read: Socket chưa kết nối');
   }

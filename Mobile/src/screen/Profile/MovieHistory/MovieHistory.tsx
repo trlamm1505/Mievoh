@@ -70,27 +70,27 @@ export default function MovieHistory() {
   }, []);
 
   useEffect(() => {
-    if (!user?.username) {
+    if (!user?.email) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
     // Sync with server (will only write if there are changes)
-    BookingRepository.syncBookingsWithServer(user.username)
+    BookingRepository.syncBookingsWithServer(user.email)
       .then(() => {
-        const updated = BookingRepository.getBookings(user.username);
+        const updated = BookingRepository.getBookings(user.email);
         setHistory(updated);
       })
       .catch((err) => {
         console.error('Error syncing booking history, loading cached SQLite version:', err);
-        const cached = BookingRepository.getBookings(user.username);
+        const cached = BookingRepository.getBookings(user.email);
         setHistory(cached);
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [user?.username]);
+  }, [user?.email]);
 
   // Helper to format currency
   const formatCurrency = (value: number) => {

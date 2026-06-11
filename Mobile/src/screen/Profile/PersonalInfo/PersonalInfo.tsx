@@ -325,7 +325,7 @@ export default function PersonalInfo() {
               style={{ color: isDark ? '#F3F4F6' : '#1F2937' }}
               className="text-xl font-extrabold mt-4"
             >
-              {user?.fullName || user?.username}
+              {user?.fullName || user?.email}
             </Text>
           </View>
 

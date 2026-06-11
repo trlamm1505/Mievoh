@@ -26,15 +26,15 @@ export default function Home() {
   const { t } = useLanguage();
 
   useEffect(() => {
-    if (user?.username) {
+    if (user?.email) {
       // Delay sync by 1.5 seconds to avoid competing with initial animations
       const timer = setTimeout(() => {
-        BookingRepository.syncBookingsWithServer(user.username)
+        BookingRepository.syncBookingsWithServer(user.email)
           .catch((err) => console.log('Background booking sync skipped/failed:', err.message || err));
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [user?.username]);
+  }, [user?.email]);
 
   const renderContent = () => {
     switch (activeTab) {

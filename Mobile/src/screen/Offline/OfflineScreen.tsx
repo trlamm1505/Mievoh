@@ -50,7 +50,7 @@ export default function OfflineScreen() {
                 {language === 'vi' ? 'Xin chào,' : 'Hello,'}
               </Text>
               <Text className="text-[15px] font-bold text-gray-805 dark:text-white">
-                {user.fullName || user.username}
+                {user.fullName || user.email}
               </Text>
             </View>
           </View>

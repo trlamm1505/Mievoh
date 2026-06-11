@@ -6,15 +6,15 @@ export class BookingRepository {
   /**
    * Save booking history lists into local SQLite database for offline sync
    */
-  static saveBookings(username: string, items: BookingHistoryItem[]): void {
+  static saveBookings(email: string, items: BookingHistoryItem[]): void {
     try {
       db.withTransactionSync(() => {
         // Clear previous bookings for this user to sync with latest state
-        db.runSync('DELETE FROM bookings WHERE username = ?', [username]);
+        db.runSync('DELETE FROM bookings WHERE email = ?', [email]);
 
         const statement = db.prepareSync(`
           INSERT INTO bookings (
-            bookingId, username, bookingDate, totalPrice, paymentStatus, paymentMethod, ticketCode,
+            bookingId, email, bookingDate, totalPrice, paymentStatus, paymentMethod, ticketCode,
             movieTitleVi, movieTitleEn, movieImageUrl, cinemaName, showDateTime, seats, foods
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
@@ -28,7 +28,7 @@ export class BookingRepository {
 
             statement.executeSync([
               item.bookingId,
-              username,
+              email,
               item.bookingDate || '',
               item.totalPrice || 0,
               item.paymentStatus || '',
@@ -47,7 +47,7 @@ export class BookingRepository {
           statement.finalizeSync();
         }
       });
-      console.log(`Saved ${items.length} bookings to SQLite for user ${username}.`);
+      console.log(`Saved ${items.length} bookings to SQLite for user ${email}.`);
     } catch (error) {
       console.error('Failed to save bookings to SQLite:', error);
     }
@@ -56,11 +56,11 @@ export class BookingRepository {
   /**
    * Fetch cached bookings for offline mode
    */
-  static getBookings(username: string): BookingHistoryItem[] {
+  static getBookings(email: string): BookingHistoryItem[] {
     try {
       const rows = db.getAllSync<BookingEntity>(
-        'SELECT * FROM bookings WHERE username = ? ORDER BY bookingDate DESC',
-        [username]
+        'SELECT * FROM bookings WHERE email = ? ORDER BY bookingDate DESC',
+        [email]
       );
 
       return rows.map(row => {
@@ -82,7 +82,7 @@ export class BookingRepository {
 
         return {
           bookingId: row.bookingId,
-          username: row.username,
+          email: row.email,
           showtimeId: '',
           bookingDate: row.bookingDate,
           totalPrice: row.totalPrice,
@@ -138,17 +138,17 @@ export class BookingRepository {
   /**
    * Fetch from server, compare with SQLite, and save only if there are updates
    */
-  static async syncBookingsWithServer(username: string): Promise<void> {
+  static async syncBookingsWithServer(email: string): Promise<void> {
     try {
       const res = await getBookingHistoryApi();
       const remoteData = (res && (res as any).data) ? (res as any).data : res;
 
       if (Array.isArray(remoteData)) {
-        const localData = this.getBookings(username);
+        const localData = this.getBookings(email);
         
         if (this.hasBookingChanges(localData, remoteData)) {
           console.log('Detecting new/updated booking history. Syncing to SQLite...');
-          this.saveBookings(username, remoteData);
+          this.saveBookings(email, remoteData);
         } else {
           console.log('Booking history in SQLite is up-to-date. Skipping write.');
         }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,7 +7,6 @@ import { useAppNavigation } from '../../navigation/navigation';
 import { GradientText } from '../../components/GradientComponents/GradientComponents';
 import Button from '../../components/Button/Button';
 import { 
-  validateUsername, 
   validateName, 
   validateEmail, 
   validatePhone, 
@@ -15,7 +14,8 @@ import {
   validateConfirmPassword 
 } from '../../validation/validation';
 import { toast } from '../../components/Toast/Toast';
-import { registerApi } from '../../axios/auth';
+import { sendRegisterOtpApi, verifyRegisterOtpApi } from '../../axios/auth';
+import OtpModal from '../../components/OtpModal/OtpModal';
 import { useTheme } from '../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../contextAPI/Language/LanguageContext';
 
@@ -26,7 +26,6 @@ export default function Register() {
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
   
-  const [username, setUsername] = useState('');
   const [fullname, setFullname] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -34,7 +33,6 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // Validation states
-  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [fullnameError, setFullnameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -42,23 +40,13 @@ export default function Register() {
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
 
   // Validity checks cascade (for locking downstream fields)
-  const isUsernameValid = username.trim().length > 0 && usernameError === null;
-  const isFullnameValid = isUsernameValid && fullname.trim().length > 0 && fullnameError === null;
+  const isFullnameValid = fullname.trim().length > 0 && fullnameError === null;
   const isEmailValid = isFullnameValid && email.trim().length > 0 && emailError === null;
   const isPhoneValid = isEmailValid && phone.trim().length > 0 && phoneError === null;
   const isPasswordValid = isPhoneValid && password.length > 0 && passwordError === null;
   const isConfirmPasswordValid = isPasswordValid && confirmPassword.length > 0 && confirmPasswordError === null;
 
   // Validation handlers
-  const handleUsernameChange = (text: string) => {
-    setUsername(text);
-    if (!text.trim()) {
-      setUsernameError(null);
-    } else {
-      setUsernameError(validateUsername(text));
-    }
-  };
-
   const handleFullnameChange = (text: string) => {
     setFullname(text);
     if (!text.trim()) {
@@ -110,22 +98,35 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // OTP states
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpResendLoading, setOtpResendLoading] = useState(false);
+
+  useEffect(() => {
+    if (otpCode === '') {
+      setOtpError(null);
+    }
+  }, [otpCode]);
+
   // Input focus states
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleRegister = async () => {
     if (!isConfirmPasswordValid) return;
     try {
-      const res = await registerApi({
-        username: username.trim(),
+      await sendRegisterOtpApi({
         fullName: fullname.trim(),
         email: email.trim(),
         phoneNumber: phone.trim(),
         password
       });
-      await login(res);
-      toast.success(language === 'vi' ? 'Đăng ký tài khoản thành công!' : 'Account registered successfully!');
-      navigation.goToHome();
+      toast.success(language === 'vi' ? 'Đã gửi mã OTP đến email của bạn!' : 'OTP code sent to your email!');
+      setOtpCode('');
+      setOtpError(null);
+      setShowOtpModal(true);
     } catch (error: any) {
       const serverMessage = error?.response?.data?.message;
       const errorMsg = Array.isArray(serverMessage) 
@@ -135,12 +136,58 @@ export default function Register() {
     }
   };
 
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) return;
+    setOtpLoading(true);
+    setOtpError(null);
+    try {
+      const res = await verifyRegisterOtpApi({
+        email: email.trim(),
+        otp: otpCode
+      });
+      await login(res);
+      toast.success(language === 'vi' ? 'Đăng ký tài khoản thành công!' : 'Account registered successfully!');
+      setShowOtpModal(false);
+      navigation.goToHome();
+    } catch (error: any) {
+      const serverMessage = error?.response?.data?.message;
+      const errorMsg = Array.isArray(serverMessage) 
+        ? serverMessage.join('\n') 
+        : serverMessage || (language === 'vi' ? 'Xác thực OTP thất bại. Vui lòng thử lại!' : 'OTP verification failed. Please try again!');
+      setOtpError(errorMsg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpResendLoading(true);
+    try {
+      await sendRegisterOtpApi({
+        fullName: fullname.trim(),
+        email: email.trim(),
+        phoneNumber: phone.trim(),
+        password
+      });
+      toast.success(language === 'vi' ? 'Đã gửi lại mã OTP!' : 'OTP code resent!');
+      setOtpCode('');
+      setOtpError(null);
+    } catch (error: any) {
+      const serverMessage = error?.response?.data?.message;
+      const errorMsg = Array.isArray(serverMessage) 
+        ? serverMessage.join('\n') 
+        : serverMessage || (language === 'vi' ? 'Không thể gửi lại mã OTP. Vui lòng thử lại!' : 'Could not resend OTP. Please try again!');
+      toast.error(errorMsg);
+    } finally {
+      setOtpResendLoading(false);
+    }
+  };
+
   const handleSignInPress = () => {
     navigation.goToLogin();
   };
 
   const getBorderColor = (fieldName: string) => {
-    if (fieldName === 'username' && usernameError) return '#EF4444';
     if (fieldName === 'fullname' && fullnameError) return '#EF4444';
     if (fieldName === 'email' && emailError) return '#EF4444';
     if (fieldName === 'phone' && phoneError) return '#EF4444';
@@ -231,43 +278,12 @@ export default function Register() {
             </GradientText>
 
             {/* Form Fields */}
-             {/* Username Input */}
-            <View className="mb-2.5">
-              <View 
-                style={{ 
-                  borderColor: getBorderColor('username'), 
-                  backgroundColor: isDark ? '#0F0C20' : '#FAF8FF',
-                  borderWidth: 1
-                }}
-                className="flex-row items-center border rounded-2xl px-4 py-2"
-              >
-                <Ionicons name="person-outline" size={18} color={getIconColor('username')} className="mr-3" />
-                <TextInput
-                  placeholder={t('username')}
-                  placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                  value={username}
-                  onChangeText={handleUsernameChange}
-                  onFocus={() => setFocusedField('username')}
-                  onBlur={() => setFocusedField(null)}
-                  style={{ color: isDark ? '#F3F4F6' : '#1F2937' }}
-                  className="flex-1 text-sm"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
-                />
-              </View>
-              {usernameError ? (
-                <Text className="text-red-500 text-xs mt-1 ml-2 font-medium">{usernameError}</Text>
-              ) : null}
-            </View>
-
             {/* Fullname Input */}
             <View className="mb-2.5">
               <View 
                 style={{ 
                   borderColor: getBorderColor('fullname'), 
                   backgroundColor: isDark ? '#0F0C20' : '#FAF8FF',
-                  opacity: isUsernameValid ? 1 : 0.5,
                   borderWidth: 1
                 }}
                 className="flex-row items-center border rounded-2xl px-4 py-2"
@@ -280,7 +296,6 @@ export default function Register() {
                   onChangeText={handleFullnameChange}
                   onFocus={() => setFocusedField('fullname')}
                   onBlur={() => setFocusedField(null)}
-                  editable={isUsernameValid}
                   style={{ color: isDark ? '#F3F4F6' : '#1F2937' }}
                   className="flex-1 text-sm"
                   autoCorrect={false}
@@ -456,6 +471,19 @@ export default function Register() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OtpModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        email={email.trim()}
+        otpCode={otpCode}
+        setOtpCode={setOtpCode}
+        otpLoading={otpLoading}
+        otpError={otpError}
+        otpResendLoading={otpResendLoading}
+        onSubmit={handleVerifyOtp}
+        onResend={handleResendOtp}
+      />
     </LinearGradient>
   );
 }

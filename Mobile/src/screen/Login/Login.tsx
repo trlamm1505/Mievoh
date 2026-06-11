@@ -26,7 +26,7 @@ try {
   });
   isGoogleSigninSupported = true;
 } catch (error) {
-  console.warn("GoogleSignin is not supported in this environment (e.g. Expo Go):", error);
+  // Google Sign-In not supported in this environment (handled gracefully on button press)
 }
 
 export default function Login() {
@@ -37,30 +37,28 @@ export default function Login() {
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
   
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isUserFocused, setIsUserFocused] = useState(false);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPassFocused, setIsPassFocused] = useState(false);
   const [isProcessingGoogle, setIsProcessingGoogle] = useState(false);
 
   useEffect(() => {
     const token = params.token as string;
-    const userParam = params.username as string;
     const fullName = params.fullName as string;
-    const email = params.email as string;
+    const emailParam = params.email as string;
     const avatar = params.avatar as string;
 
-    if (token && userParam) {
+    if (token && emailParam) {
       const authData: AuthResponse = {
         token: {
           accessToken: token,
           refreshToken: token
         },
         user: {
-          username: userParam,
           fullName: fullName || null,
-          email: email || null,
+          email: emailParam,
           phoneNumber: null,
           avatar: avatar || null,
           userType: 'user',
@@ -79,15 +77,15 @@ export default function Login() {
         toast.error(language === 'vi' ? 'Không thể hoàn tất đăng nhập bằng Google.' : 'Failed to complete Google login.');
       });
     }
-  }, [params.token, params.username]);
+  }, [params.token, params.email]);
 
   const handleLogin = async () => {
     try {
-      if (!username.trim() || !password) {
-        toast.error(language === 'vi' ? 'Vui lòng nhập tên đăng nhập và mật khẩu!' : 'Please enter username and password!');
+      if (!email.trim() || !password) {
+        toast.error(language === 'vi' ? 'Vui lòng nhập email và mật khẩu!' : 'Please enter email and password!');
         return;
       }
-      const res = await loginApi({ username: username.trim(), password });
+      const res = await loginApi({ email: email.trim(), password });
       await login(res);
       toast.success(language === 'vi' ? 'Đăng nhập thành công!' : 'Login successful!');
       navigation.goToHome();
@@ -234,29 +232,30 @@ export default function Login() {
             </GradientText>
 
             {/* Inputs */}
-            {/* Username Input */}
+            {/* Email Input */}
             <View className="mb-3">
               <View 
                 style={{
-                  borderColor: isUserFocused ? '#7B61FF' : (isDark ? '#2E2856' : '#E9D5FF'),
+                  borderColor: isEmailFocused ? '#7B61FF' : (isDark ? '#2E2856' : '#E9D5FF'),
                   backgroundColor: isDark ? '#0F0C20' : '#FAF8FF',
                   borderWidth: 1
                 }}
                 className="flex-row items-center rounded-2xl px-4 py-2.5"
               >
-                <Ionicons name="person-outline" size={20} color={isUserFocused ? '#7B61FF' : '#9ca3af'} className="mr-3" />
+                <Ionicons name="mail-outline" size={20} color={isEmailFocused ? '#7B61FF' : '#9ca3af'} className="mr-3" />
                 <TextInput
-                  placeholder={t('username')}
+                  placeholder={language === 'vi' ? 'Địa chỉ email' : 'Email address'}
                   placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
-                  value={username}
-                  onChangeText={setUsername}
-                  onFocus={() => setIsUserFocused(true)}
-                  onBlur={() => setIsUserFocused(false)}
+                  value={email}
+                  onChangeText={setEmail}
+                  onFocus={() => setIsEmailFocused(true)}
+                  onBlur={() => setIsEmailFocused(false)}
                   style={{ color: isDark ? '#F3F4F6' : '#1F2937' }}
                   className="flex-1 text-sm"
                   autoCapitalize="none"
                   autoCorrect={false}
                   spellCheck={false}
+                  keyboardType="email-address"
                 />
               </View>
             </View>

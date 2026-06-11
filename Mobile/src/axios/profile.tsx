@@ -7,9 +7,8 @@ export interface BaseResponse<T> {
 }
 
 export interface UserProfile {
-  username: string;
   fullName: string | null;
-  email: string | null;
+  email: string;
   phoneNumber: string | null;
   avatar: string | null;
   userType: string | null;
@@ -73,7 +72,7 @@ export interface ShowtimeInfo {
 
 export interface BookingHistoryItem {
   bookingId: string;
-  username: string;
+  email: string;
   showtimeId: string;
   bookingDate: string;
   totalPrice: number;
@@ -122,7 +121,7 @@ export interface RecommendedMovie {
 
 export interface PersonalRecommendation {
   recommendationId: string;
-  username: string;
+  email: string;
   movieId: string;
   matchScore: number;
   isEmailSent: boolean;

@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userVal) {
         let parsedUser = JSON.parse(userVal);
         try {
-          const localAvatar = await AsyncStorage.getItem(`avatar_${parsedUser.username}`);
+          const localAvatar = await AsyncStorage.getItem(`avatar_${parsedUser.email}`);
           if (localAvatar) {
             parsedUser.avatar = localAvatar;
           }
@@ -82,9 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const freshProfile = await getProfileApi();
             const profileData = freshProfile?.data || freshProfile;
-            if (profileData && profileData.username) {
+            if (profileData && profileData.email) {
               const syncedUser: UserResponse = {
-                username: profileData.username,
                 fullName: profileData.fullName,
                 email: profileData.email,
                 avatar: profileData.avatar || parsedUser.avatar,
@@ -134,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let userData = authData.user;
     if (userData) {
       try {
-        const localAvatar = await AsyncStorage.getItem(`avatar_${userData.username}`);
+        const localAvatar = await AsyncStorage.getItem(`avatar_${userData.email}`);
         if (localAvatar) {
           userData = { ...userData, avatar: localAvatar };
         }
@@ -154,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const updatedUser = { ...user, avatar: avatarUri };
       setUser(updatedUser);
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-      await AsyncStorage.setItem(`avatar_${user.username}`, avatarUri);
+      await AsyncStorage.setItem(`avatar_${user.email}`, avatarUri);
     }
   };
 
