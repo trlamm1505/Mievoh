@@ -136,7 +136,7 @@ export default function MovieDetail() {
             (Array.isArray(rawReviews) ? rawReviews : []);
           defaultReviewsList = reviewItems.map((r: any) => ({
             id: r.reviewId || String(Math.random()),
-            name: r.User?.fullName || r.username || (language === 'vi' ? 'Khán giả' : 'Audience'),
+            name: r.User?.fullName || r.email || (language === 'vi' ? 'Khán giả' : 'Audience'),
             rating: r.rating || 5,
             comment: r.comment || '',
             date: r.createdAt ? new Date(r.createdAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US') : '06/06/2026'
@@ -257,7 +257,7 @@ export default function MovieDetail() {
           (Array.isArray(rawReviews) ? rawReviews : []);
         updatedReviewsList = reviewItems.map((r: any) => ({
           id: r.reviewId || String(Math.random()),
-          name: r.User?.fullName || r.username || (language === 'vi' ? 'Khán giả' : 'Audience'),
+          name: r.User?.fullName || r.email || (language === 'vi' ? 'Khán giả' : 'Audience'),
           rating: r.rating || 5,
           comment: r.comment || '',
           date: r.createdAt ? new Date(r.createdAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US') : '06/06/2026'
@@ -268,7 +268,7 @@ export default function MovieDetail() {
         const formattedDate = today.toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US');
         const localReview: Review = {
           id: res.data?.reviewId || String(Date.now()),
-          name: user?.fullName || user?.username || (language === 'vi' ? 'Thành viên' : 'Member'),
+          name: user?.fullName || user?.email || (language === 'vi' ? 'Thành viên' : 'Member'),
           rating: userRating,
           comment: commentText.trim(),
           date: formattedDate

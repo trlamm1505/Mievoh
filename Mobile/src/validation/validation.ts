@@ -15,23 +15,6 @@ const getLang = () => {
     return currentLanguage;
 };
 
-export const validateUsername = (username: string): string | null => {
-    const isVi = getLang() === "vi";
-    if (!username.trim()) {
-        return isVi ? "Tên đăng nhập là bắt buộc" : "Username is required";
-    }
-    if (username.trim().length < 3) {
-        return isVi ? "Tên đăng nhập phải có ít nhất 3 ký tự" : "Username must be at least 3 characters";
-    }
-    const usernameRegex = /^[a-zA-Z0-9_]+$/;
-    if (!usernameRegex.test(username.trim())) {
-        return isVi 
-            ? "Tên đăng nhập chỉ có thể chứa chữ cái, số và dấu gạch dưới" 
-            : "Username can only contain letters, numbers, and underscores";
-    }
-    return null;
-};
-
 export const validateEmail = (email: string): string | null => {
     const isVi = getLang() === "vi";
     if (!email.trim()) {

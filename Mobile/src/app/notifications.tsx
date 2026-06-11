@@ -35,7 +35,7 @@ export default function NotificationsScreen() {
   const displayedNotifications = showAll ? notifications : notifications.slice(0, 5);
 
   const fetchNotifications = useCallback(async (showLoading = false) => {
-    if (!isLoggedIn || !user?.username) {
+    if (!isLoggedIn || !user?.email) {
       setLoading(false);
       return;
     }
@@ -51,7 +51,7 @@ export default function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isLoggedIn, user?.username]);
+  }, [isLoggedIn, user?.email]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -82,8 +82,8 @@ export default function NotificationsScreen() {
       // Notify header/app after database update completes
       DeviceEventEmitter.emit('sync-notifications');
       
-      if (user?.username) {
-        emitMarkAsRead(id, user.username);
+      if (user?.email) {
+        emitMarkAsRead(id, user.email);
       }
     } catch (e) {
       console.error("Failed to mark as read:", e);
@@ -97,8 +97,8 @@ export default function NotificationsScreen() {
         setNotifications(prev => prev.map(item => item.notificationId === n.notificationId ? { ...item, isRead: true } : item));
         await markAsReadApi(n.notificationId);
         DeviceEventEmitter.emit('sync-notifications');
-        if (user?.username) {
-          emitMarkAsRead(n.notificationId, user.username);
+        if (user?.email) {
+          emitMarkAsRead(n.notificationId, user.email);
         }
       } catch (e) {
         console.error("Failed to mark as read:", e);
@@ -124,8 +124,8 @@ export default function NotificationsScreen() {
       // Notify header/app after database update completes
       DeviceEventEmitter.emit('sync-notifications');
       
-      if (user?.username) {
-        emitMarkAllAsRead(user.username);
+      if (user?.email) {
+        emitMarkAllAsRead(user.email);
       }
     } catch (e) {
       console.error("Failed to mark all as read:", e);

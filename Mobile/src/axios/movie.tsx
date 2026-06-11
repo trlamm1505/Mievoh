@@ -77,7 +77,7 @@ export const getShowtimesByMovieApi = async (movieId: string, date?: string): Pr
 export interface API_Review {
   reviewId: string;
   movieId: string;
-  username: string;
+  email: string;
   rating: number;
   comment: string | null;
   createdAt: string;

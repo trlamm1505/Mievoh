@@ -6,11 +6,21 @@ export const db = SQLite.openDatabaseSync(DATABASE_NAME);
 
 export const initDatabase = () => {
   try {
+    // Drop old table to migrate to email column if needed
+    try {
+      const info = db.getAllSync<{ name: string }>('PRAGMA table_info(bookings)');
+      if (info.some(col => col.name === 'username')) {
+        db.execSync('DROP TABLE bookings');
+      }
+    } catch (e) {
+      // Table may not exist yet
+    }
+
     db.execSync(`
       PRAGMA journal_mode = WAL;
       CREATE TABLE IF NOT EXISTS bookings (
         bookingId TEXT PRIMARY KEY NOT NULL,
-        username TEXT NOT NULL,
+        email TEXT NOT NULL,
         bookingDate TEXT,
         totalPrice REAL,
         paymentStatus TEXT,

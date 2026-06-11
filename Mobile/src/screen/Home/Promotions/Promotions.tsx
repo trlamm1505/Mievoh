@@ -6,6 +6,7 @@ import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
 import { getMyVouchersApi, Voucher } from '../../../axios/booking';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const GAP = 12;
@@ -20,6 +21,7 @@ export default function Promotions({ onSeeAll }: PromotionsProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+  const { isLoggedIn } = useAuth();
   const [promotions, setPromotions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,6 +30,12 @@ export default function Promotions({ onSeeAll }: PromotionsProps) {
   const isInteracting = useRef(false);
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      setPromotions([]);
+      setLoading(false);
+      return;
+    }
+
     const fetchPromotions = async () => {
       try {
         const res = await getMyVouchersApi();
@@ -96,7 +104,7 @@ export default function Promotions({ onSeeAll }: PromotionsProps) {
     };
 
     fetchPromotions();
-  }, [language]);
+  }, [language, isLoggedIn]);
 
   useEffect(() => {
     if (promotions.length === 0) return;
