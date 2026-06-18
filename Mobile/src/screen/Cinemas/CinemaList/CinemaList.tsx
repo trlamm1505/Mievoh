@@ -6,6 +6,7 @@ import { GradientText } from '../../../components/GradientComponents/GradientCom
 import Search from '../../../components/Search/Search';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
+import { useAppNavigation } from '../../../navigation/navigation';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -47,6 +48,7 @@ export default function CinemaList() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+  const navigation = useAppNavigation();
 
   useEffect(() => {
     const fetchCinemas = async () => {
@@ -322,6 +324,9 @@ export default function CinemaList() {
             {displayBranches.map((branch) => (
               <TouchableOpacity
                 key={branch.id.toString()}
+                onPress={() => {
+                  navigation.push(`/cinema-booking/cinema-showtime?complexId=${branch.id}&complexName=${encodeURIComponent(branch.name)}&complexAddress=${encodeURIComponent(branch.address)}&cinemaSystemName=${encodeURIComponent(branch.chainName)}&cinemaSystemLogo=${encodeURIComponent(branch.chainLogo)}`);
+                }}
                 style={{
                   backgroundColor: isDark ? '#1D183B' : '#FFFFFF',
                   borderColor: isDark ? '#2E2856' : '#F3F4F6',

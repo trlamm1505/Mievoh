@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppNavigation } from '../../../navigation/navigation';
 import { getMovieDetailApi, getShowtimesByMovieApi, getReviewsByMovieApi, createReviewApi, Movie } from '../../../axios/movie';
+import { useBooking } from '../../../contextAPI/Booking/BookingContext';
 import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 import { toast } from '../../../components/Toast/Toast';
 import Button from '../../../components/Button/Button';
@@ -60,6 +61,7 @@ export default function MovieDetail() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+  const { setMovie: setBookingMovie, setShowtime: setBookingShowtime, setStep: setBookingStep } = useBooking();
 
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
@@ -613,7 +615,19 @@ export default function MovieDetail() {
         <Button
           variant="primary"
           size="sm"
-          onPress={() => setIsBottomSheetVisible(true)}
+          onPress={() => {
+            // Set movie info into BookingContext for the SelectShowtime screen
+            setBookingMovie({
+              movieId: movie.movieId,
+              title_vi: movie.title_vi,
+              title_en: movie.title_en,
+              imageUrl: movie.imageUrl,
+              duration: movie.duration,
+              ageRestriction: movie.ageRestriction,
+            });
+            setBookingStep(1);
+            navigation.goToSelectShowtime();
+          }}
           className="flex-1 rounded-full"
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
@@ -805,13 +819,30 @@ export default function MovieDetail() {
                             <TouchableOpacity
                               key={st.showtimeId}
                               onPress={() => {
-                                const formattedTime = new Date(st.showDateTime).toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' });
-                                toast.success(
-                                  language === 'vi' 
-                                    ? `Bạn đã chọn suất chiếu lúc ${formattedTime} tại ${complex.name}.`
-                                    : `You selected showtime ${formattedTime} at ${complex.name}.`
-                                );
+                                // Set movie info into BookingContext
+                                setBookingMovie({
+                                  movieId: movie.movieId,
+                                  title_vi: movie.title_vi,
+                                  title_en: movie.title_en,
+                                  imageUrl: movie.imageUrl,
+                                  duration: movie.duration,
+                                  ageRestriction: movie.ageRestriction,
+                                });
+                                // Set selected showtime into BookingContext
+                                setBookingShowtime({
+                                  showtimeId: st.showtimeId,
+                                  showDateTime: st.showDateTime,
+                                  format: st.format || '2D',
+                                  ticketPrice: st.ticketPrice || 0,
+                                  cinemaId: st.cinemaId || '',
+                                  cinemaName: st.Cinema?.name || '',
+                                  cinemaComplexId: complex.cinemaComplexId || '',
+                                  cinemaComplexName: complex.name || '',
+                                  cinemaComplexAddress: complex.address || '',
+                                });
+                                setBookingStep(2);
                                 setIsBottomSheetVisible(false);
+                                navigation.goToSelectSeat();
                               }}
                               style={[styles.timeSlotBtn, isDark && styles.timeSlotBtnDark]}
                               activeOpacity={0.7}

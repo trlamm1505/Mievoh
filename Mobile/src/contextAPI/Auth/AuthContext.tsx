@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (authData?.token?.refreshToken) {
       await AsyncStorage.setItem('refreshToken', authData.token.refreshToken);
     }
-    
+
     let userData = authData.user;
     if (userData) {
       try {
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       await AsyncStorage.setItem('user', JSON.stringify(userData));
     }
-    
+
     await AsyncStorage.setItem('isLoggedIn', 'true');
     setIsLoggedIn(true);
     setUser(userData);
