@@ -61,7 +61,8 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
 
   return (
     <View 
-      style={{ flex: 1, position: 'relative', backgroundColor: isDark ? '#0F0C20' : '#FFFFFF' }}
+      style={{ flex: 1, backgroundColor: isDark ? '#0F0C20' : '#FFFFFF' }}
+      className="relative"
     >
       {/* Header */}
       <Header />

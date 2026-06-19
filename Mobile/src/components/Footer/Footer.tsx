@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../contextAPI/Language/LanguageContext';
@@ -78,12 +78,8 @@ export default function Footer({ activeTab: propActiveTab, onTabChange }: Footer
     },
   ];
 
-
   return (
-    <View style={[
-      footerStyles.container,
-      isDark ? footerStyles.containerDark : footerStyles.containerLight,
-    ]}>
+    <View className="absolute bottom-5 left-4 right-4 bg-white/95 dark:bg-zinc-900/95 rounded-[24px] shadow-lg border border-gray-100/50 dark:border-zinc-800 px-2.5 py-1.5 flex-row items-center justify-between z-50">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
         const iconColor = isActive ? '#FFFFFF' : (isDark ? '#9CA3AF' : '#4B5563');
@@ -92,10 +88,9 @@ export default function Footer({ activeTab: propActiveTab, onTabChange }: Footer
           <TouchableOpacity
             key={tab.key}
             onPress={() => handleTabPress(tab.key)}
-            style={[
-              footerStyles.tabBtn,
-              isActive && footerStyles.tabBtnActive,
-            ]}
+            className={`flex-1 items-center justify-center py-1.5 rounded-[18px] transition-all duration-200 ${
+              isActive ? 'bg-[#7B61FF]' : 'bg-transparent'
+            }`}
           >
             {tab.iconType === 'ionicons' ? (
               <Ionicons
@@ -112,12 +107,11 @@ export default function Footer({ activeTab: propActiveTab, onTabChange }: Footer
             )}
             <Text
               numberOfLines={1}
-              style={[
-                footerStyles.tabLabel,
-                isActive
-                  ? footerStyles.tabLabelActive
-                  : isDark ? footerStyles.tabLabelDark : footerStyles.tabLabelLight,
-              ]}
+              className={`text-[9px] mt-0.5 font-medium ${
+                isActive 
+                  ? 'text-white font-bold' 
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
             >
               {getTranslatedLabel(tab.key)}
             </Text>
@@ -127,58 +121,3 @@ export default function Footer({ activeTab: propActiveTab, onTabChange }: Footer
     </View>
   );
 }
-
-const footerStyles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 20,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 24,
-    zIndex: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-  },
-  containerLight: {
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    borderColor: 'rgba(209,213,219,0.5)',
-  },
-  containerDark: {
-    backgroundColor: 'rgba(24,24,27,0.97)',
-    borderColor: 'rgba(63,63,70,0.8)',
-  },
-  tabBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    borderRadius: 18,
-  },
-  tabBtnActive: {
-    backgroundColor: '#7B61FF',
-  },
-  tabLabel: {
-    fontSize: 9,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  tabLabelActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  tabLabelLight: {
-    color: '#6B7280',
-  },
-  tabLabelDark: {
-    color: '#9CA3AF',
-  },
-});

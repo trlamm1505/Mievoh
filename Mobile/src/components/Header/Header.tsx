@@ -102,7 +102,7 @@ export default function Header() {
                   ? { uri: user.avatar }
                   : require('../../../assets/images/mievoh/avatar.jpg')
               }
-              style={{ width: 40, height: 40, borderRadius: 20 }}
+              className="w-10 h-10 rounded-full"
               resizeMode="cover"
             />
             <View className="ml-3">
@@ -117,7 +117,7 @@ export default function Header() {
             <View className="border border-gray-100 dark:border-zinc-800 rounded-full p-0.5 shadow-sm">
               <Image
                 source={require('../../../assets/images/mievoh/mievoh_logo.png')}
-                style={{ width: 40, height: 40, borderRadius: 20 }}
+                className="w-10 h-10 rounded-full"
                 resizeMode="cover"
               />
             </View>

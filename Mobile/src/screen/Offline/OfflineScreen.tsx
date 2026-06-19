@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   cardGradientOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 12, 32, 0.55)', // Dark translucent overlay for readability
   },
 });
