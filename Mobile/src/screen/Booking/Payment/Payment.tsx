@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,49 @@ import { useBooking } from '../../../contextAPI/Booking/BookingContext';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
 import { useAuth } from '../../../contextAPI/Auth/AuthContext';
-import { createBookingApi, getMyVouchersApi, Voucher, CreateBookingDto } from '../../../axios/booking';
+import { createBookingApi, getMyVouchersApi, verifyVNPayReturnApi, Voucher, CreateBookingDto } from '../../../axios/booking';
 import { toast } from '../../../components/Toast/Toast';
+
+const extractVoucherList = (payload: any): Voucher[] => {
+  const candidates = [
+    payload,
+    payload?.data,
+    payload?.data?.data,
+    payload?.vouchers,
+    payload?.data?.vouchers,
+  ];
+
+  return candidates.find(Array.isArray) || [];
+};
+
+const extractUrlParams = (url: string) => {
+  const queryString = url.split('?')[1]?.split('#')[0] || '';
+  return queryString.split('&').reduce<Record<string, string>>((params, pair) => {
+    if (!pair) return params;
+
+    const [rawKey, rawValue = ''] = pair.split('=');
+    const key = decodeURIComponent(rawKey);
+    const value = decodeURIComponent(rawValue.replace(/\+/g, ' '));
+    params[key] = value;
+    return params;
+  }, {});
+};
+
+const isVNPayReturnUrl = (url: string) => (
+  url.includes('vnpay-return') || url.includes('payment-success') || url.includes('payment-result')
+);
+
+const isSuccessfulPaymentResponse = (payload: any, params: Record<string, string>) => {
+  const data = payload?.data || payload;
+  const responseCode = params.vnp_ResponseCode || data?.code || data?.responseCode;
+  const transactionStatus = params.vnp_TransactionStatus || data?.transactionStatus;
+  const message = String(data?.message || '').toLowerCase();
+
+  return responseCode === '00'
+    || transactionStatus === '00'
+    || message.includes('success')
+    || message.includes('thành công');
+};
 
 export default function Payment() {
   const navigation = useAppNavigation();
@@ -32,6 +73,7 @@ export default function Payment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
+  const isHandlingPaymentReturn = useRef(false);
 
   // Voucher state
   const [voucherCode, setVoucherCode] = useState('');
@@ -58,13 +100,11 @@ export default function Payment() {
     setLoadingVouchers(true);
     try {
       const res = await getMyVouchersApi();
-      const data = res?.data;
-      const voucherList = (data as any)?.data || data;
-      if (Array.isArray(voucherList)) {
-        setVouchers(voucherList.filter((v: Voucher) => v.isActive));
-      }
+      const voucherList = extractVoucherList(res);
+      setVouchers(voucherList.filter((v: Voucher) => v.isActive));
     } catch (err) {
       console.error('Error fetching vouchers:', err);
+      setVouchers([]);
     } finally {
       setLoadingVouchers(false);
     }
@@ -100,13 +140,14 @@ export default function Payment() {
 
     setIsSubmitting(true);
     try {
+      const enteredVoucherCode = voucherCode.trim();
       const bookingData: CreateBookingDto = {
         showtimeId: showtime.showtimeId,
         seats: selectedSeats.map(s => s.seatId),
         foods: selectedFoods.length > 0
           ? selectedFoods.map(f => ({ foodId: f.food.foodId, quantity: f.quantity }))
           : undefined,
-        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+        voucherCode: appliedVoucher?.code || enteredVoucherCode || undefined,
       };
 
       const res = await createBookingApi(bookingData);
@@ -116,6 +157,7 @@ export default function Payment() {
       toast.success(t('toast_payment_initiated'));
 
       if (result?.paymentUrl) {
+        isHandlingPaymentReturn.current = false;
         setPaymentUrl(result.paymentUrl);
         setShowWebView(true);
         setBookingResult({
@@ -145,16 +187,48 @@ export default function Payment() {
   };
 
   // Handle WebView navigation state change (detect VNPay return)
-  const handleWebViewNavigation = useCallback((navState: any) => {
+  const handleWebViewNavigation = useCallback(async (navState: any) => {
     const url = navState.url || '';
-    // VNPay typically redirects to a return URL after payment
-    if (url.includes('vnpay-return') || url.includes('payment-success') || url.includes('payment-result')) {
+    if (!isVNPayReturnUrl(url) || isHandlingPaymentReturn.current) return;
+
+    isHandlingPaymentReturn.current = true;
+    const params = extractUrlParams(url);
+
+    try {
+      const responseCode = params.vnp_ResponseCode;
+      if (responseCode && responseCode !== '00') {
+        setShowWebView(false);
+        setPaymentUrl(null);
+        toast.error(
+          responseCode === '24'
+            ? (language === 'vi' ? 'Bạn đã hủy thanh toán' : 'Payment was cancelled')
+            : (language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed')
+        );
+        return;
+      }
+
+      const verifyResult = await verifyVNPayReturnApi(params);
+      if (isSuccessfulPaymentResponse(verifyResult, params)) {
+        setShowWebView(false);
+        toast.success(t('toast_payment_success'));
+        setStep(5);
+        navigation.goToTicketResult();
+        return;
+      }
+
       setShowWebView(false);
-      toast.success(t('toast_payment_success'));
-      setStep(5);
-      navigation.goToTicketResult();
+      setPaymentUrl(null);
+      toast.error(language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed');
+    } catch (err: any) {
+      console.error('VNPay return verification error:', err);
+      setShowWebView(false);
+      setPaymentUrl(null);
+      const msg = err?.response?.data?.message || (language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed');
+      toast.error(msg);
+    } finally {
+      isHandlingPaymentReturn.current = false;
     }
-  }, [navigation, setStep, t]);
+  }, [language, navigation, setStep, t]);
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
