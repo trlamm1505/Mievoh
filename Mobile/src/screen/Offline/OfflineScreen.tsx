@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Platform, Image, Modal, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image as ExpoImage } from 'expo-image';
 import { useTheme } from '../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../contextAPI/Language/LanguageContext';
 import { useAuth } from '../../contextAPI/Auth/AuthContext';
 import { useAppNavigation } from '../../navigation/navigation';
+import { MovieRepository } from '../../SQLite/repositories/MovieRepository';
+import { RecommendedMovieEntity } from '../../SQLite/models/MovieModel';
 
 export default function OfflineScreen() {
   const { theme, toggleTheme } = useTheme();
@@ -13,6 +16,12 @@ export default function OfflineScreen() {
   const { isLoggedIn, user } = useAuth();
   const navigation = useAppNavigation();
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
+  const [cachedMovies, setCachedMovies] = useState<RecommendedMovieEntity[]>([]);
+
+  useEffect(() => {
+    const movies = MovieRepository.getRecommendedMovies();
+    setCachedMovies(movies);
+  }, []);
 
   return (
     <View style={{ flex: 1, backgroundColor: isDark ? '#0A0814' : '#F3F4F6' }}>
@@ -109,69 +118,129 @@ export default function OfflineScreen() {
             : 'You are currently offline. You can still view your booking history and previously purchased tickets.'}
         </Text>
 
-        {/* Feature Cards Showcase */}
-        {/* Card 1: Premium Lounge */}
-        <View style={styles.featureCard}>
-          <Image
-            source={require('../../../assets/images/mievoh/cinema_lounge_feature.png')}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-          <View style={styles.cardGradientOverlay} />
+        {/* Feature Cards or Cache Movies */}
+        {cachedMovies.length > 0 ? (
+          <>
+            <Text
+              style={{ color: isDark ? '#A5B4FC' : '#4F46E5', marginBottom: 12 }}
+              className="text-[15px] font-extrabold px-1"
+            >
+              {language === 'vi' ? 'Phim đề xuất (Vui lòng online để đặt vé)' : 'Recommended Movies (Please go online to book)'}
+            </Text>
+            {cachedMovies.map((movie) => (
+              <TouchableOpacity
+                key={movie.movieId}
+                onPress={() => navigation.goToMovieDetail(movie.movieId)}
+                style={styles.featureCard}
+                activeOpacity={0.85}
+              >
+                <ExpoImage
+                  source={{ uri: movie.imageUrl }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  cachePolicy="disk"
+                  transition={200}
+                />
+                <View style={styles.cardGradientOverlay} />
 
-          <View className="absolute bottom-4 left-4 right-4">
-            <Text className="text-white text-base font-extrabold">
-              {language === 'vi' ? 'Không gian đẳng cấp' : 'Premium Space'}
-            </Text>
-            <Text className="text-gray-300 text-[10px] mt-0.5 leading-4 font-medium">
-              {language === 'vi'
-                ? 'Trải nghiệm rạp chiếu phim hiện đại với tiêu chuẩn quốc tế.'
-                : 'Experience state-of-the-art cinema rooms built to international standards.'}
-            </Text>
-          </View>
-        </View>
+                {/* Match Score Badge */}
+                <View 
+                  style={{ position: 'absolute', top: 12, left: 12, backgroundColor: '#10B981', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}
+                >
+                  <Text className="text-white text-[9px] font-bold">
+                    {Math.round(movie.matchScore)}% Match
+                  </Text>
+                </View>
 
-        {/* Card 2: Easy Ticket Booking */}
-        <View style={styles.featureCard}>
-          <Image
-            source={require('../../../assets/images/mievoh/ticket_booking_feature.png')}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-          <View style={styles.cardGradientOverlay} />
+                {/* Rating Star */}
+                <View 
+                  style={{ position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, flexDirection: 'row', alignItems: 'center' }}
+                >
+                  <Text className="text-yellow-500 text-[10px] mr-1">⭐</Text>
+                  <Text className="text-white text-[10px] font-bold">
+                    {movie.averageRating.toFixed(1)}
+                  </Text>
+                </View>
 
-          <View className="absolute bottom-4 left-4 right-4">
-            <Text className="text-white text-base font-extrabold">
-              {language === 'vi' ? 'Đặt vé dễ dàng' : 'Easy Ticket Booking'}
-            </Text>
-            <Text className="text-gray-300 text-[10px] mt-0.5 leading-4 font-medium">
-              {language === 'vi'
-                ? 'Chỉ vài thao tác đơn giản để sở hữu chỗ ngồi đẹp nhất.'
-                : 'Just a few simple taps to grab the absolute best seats in the theater.'}
-            </Text>
-          </View>
-        </View>
+                <View className="absolute bottom-4 left-4 right-4">
+                  <Text className="text-white text-base font-extrabold" numberOfLines={1}>
+                    {movie.titleVi}
+                  </Text>
+                  <Text className="text-gray-300 text-[10px] mt-0.5 leading-4 font-medium">
+                    {language === 'vi'
+                      ? 'Nhấp để xem chi tiết bộ phim này.'
+                      : 'Tap to see this movie details.'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </>
+        ) : (
+          <>
+            {/* Fallback Card 1: Premium Lounge */}
+            <View style={styles.featureCard}>
+              <ExpoImage
+                source={require('../../../assets/images/mievoh/cinema_lounge_feature.png')}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+              />
+              <View style={styles.cardGradientOverlay} />
 
-        {/* Card 3: IMAX & Dolby */}
-        <View style={styles.featureCard}>
-          <Image
-            source={require('../../../assets/images/mievoh/imax_dolby_feature.png')}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-          <View style={styles.cardGradientOverlay} />
+              <View className="absolute bottom-4 left-4 right-4">
+                <Text className="text-white text-base font-extrabold">
+                  {language === 'vi' ? 'Không gian đẳng cấp' : 'Premium Space'}
+                </Text>
+                <Text className="text-gray-300 text-[10px] mt-0.5 leading-4 font-medium">
+                  {language === 'vi'
+                    ? 'Trải nghiệm rạp chiếu phim hiện đại với tiêu chuẩn quốc tế.'
+                    : 'Experience state-of-the-art cinema rooms built to international standards.'}
+                </Text>
+              </View>
+            </View>
 
-          <View className="absolute bottom-4 left-4 right-4">
-            <Text className="text-white text-base font-extrabold">
-              {language === 'vi' ? 'Công nghệ IMAX & Dolby' : 'IMAX & Dolby Technology'}
-            </Text>
-            <Text className="text-gray-300 text-[10px] mt-0.5 leading-4 font-medium">
-              {language === 'vi'
-                ? 'Hình ảnh sắc nét và âm thanh sống động đến từng chi tiết.'
-                : 'Crystal-clear screen visuals and breathtaking audio details.'}
-            </Text>
-          </View>
-        </View>
+            {/* Fallback Card 2: Easy Ticket Booking */}
+            <View style={styles.featureCard}>
+              <ExpoImage
+                source={require('../../../assets/images/mievoh/ticket_booking_feature.png')}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+              />
+              <View style={styles.cardGradientOverlay} />
+
+              <View className="absolute bottom-4 left-4 right-4">
+                <Text className="text-white text-base font-extrabold">
+                  {language === 'vi' ? 'Đặt vé dễ dàng' : 'Easy Ticket Booking'}
+                </Text>
+                <Text className="text-gray-300 text-[10px] mt-0.5 leading-4 font-medium">
+                  {language === 'vi'
+                    ? 'Chỉ vài thao tác đơn giản để sở hữu chỗ ngồi đẹp nhất.'
+                    : 'Just a few simple taps to grab the absolute best seats in the theater.'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Fallback Card 3: IMAX & Dolby */}
+            <View style={styles.featureCard}>
+              <ExpoImage
+                source={require('../../../assets/images/mievoh/imax_dolby_feature.png')}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+              />
+              <View style={styles.cardGradientOverlay} />
+
+              <View className="absolute bottom-4 left-4 right-4">
+                <Text className="text-white text-base font-extrabold">
+                  {language === 'vi' ? 'Công nghệ IMAX & Dolby' : 'IMAX & Dolby Technology'}
+                </Text>
+                <Text className="text-gray-300 text-[10px] mt-0.5 leading-4 font-medium">
+                  {language === 'vi'
+                    ? 'Hình ảnh sắc nét và âm thanh sống động đến từng chi tiết.'
+                    : 'Crystal-clear screen visuals and breathtaking audio details.'}
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
 
         {/* Redirect Button to Movie History at the end */}
         <TouchableOpacity
@@ -416,6 +485,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderColor: 'rgba(123, 97, 255, 0.25)',
     borderWidth: 1.5,
+    backgroundColor: '#1D1936',
   },
   cardGradientOverlay: {
     ...StyleSheet.absoluteFill,
