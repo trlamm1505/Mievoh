@@ -24,8 +24,8 @@ export default function OfflineScreen() {
       />
 
       {/* Top Header Bar showing User Info and Settings Button */}
-      <View 
-        style={{ 
+      <View
+        style={{
           paddingTop: Platform.OS === 'ios' ? 60 : 40,
           borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
           borderBottomWidth: 1,
@@ -70,7 +70,7 @@ export default function OfflineScreen() {
         )}
 
         {/* Settings Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => setIsSettingsVisible(true)}
           style={{
             width: 40,
@@ -87,12 +87,12 @@ export default function OfflineScreen() {
       </View>
 
       {/* Main Scrollable Content */}
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 }}
       >
         {/* Main Introduce Title */}
-        <Text 
+        <Text
           style={{ color: isDark ? '#FFFFFF' : '#1F2937' }}
           className="text-2xl font-black text-center mb-2 leading-8"
         >
@@ -100,7 +100,7 @@ export default function OfflineScreen() {
         </Text>
 
         {/* Subtitle */}
-        <Text 
+        <Text
           style={{ color: isDark ? '#9CA3AF' : '#4B5563' }}
           className="text-xs text-center mb-6 px-4 leading-5 font-medium"
         >
@@ -118,7 +118,7 @@ export default function OfflineScreen() {
             resizeMode="cover"
           />
           <View style={styles.cardGradientOverlay} />
-          
+
           <View className="absolute bottom-4 left-4 right-4">
             <Text className="text-white text-base font-extrabold">
               {language === 'vi' ? 'Không gian đẳng cấp' : 'Premium Space'}
@@ -139,7 +139,7 @@ export default function OfflineScreen() {
             resizeMode="cover"
           />
           <View style={styles.cardGradientOverlay} />
-          
+
           <View className="absolute bottom-4 left-4 right-4">
             <Text className="text-white text-base font-extrabold">
               {language === 'vi' ? 'Đặt vé dễ dàng' : 'Easy Ticket Booking'}
@@ -160,7 +160,7 @@ export default function OfflineScreen() {
             resizeMode="cover"
           />
           <View style={styles.cardGradientOverlay} />
-          
+
           <View className="absolute bottom-4 left-4 right-4">
             <Text className="text-white text-base font-extrabold">
               {language === 'vi' ? 'Công nghệ IMAX & Dolby' : 'IMAX & Dolby Technology'}
@@ -176,7 +176,7 @@ export default function OfflineScreen() {
         {/* Redirect Button to Movie History at the end */}
         <TouchableOpacity
           onPress={() => navigation.goToMovieHistory()}
-          style={{ 
+          style={{
             backgroundColor: '#7B61FF',
             shadowColor: '#7B61FF',
             shadowOffset: { width: 0, height: 6 },
@@ -202,8 +202,8 @@ export default function OfflineScreen() {
         animationType="fade"
         onRequestClose={() => setIsSettingsVisible(false)}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
+        <TouchableOpacity
+          style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setIsSettingsVisible(false)}
         >
@@ -222,13 +222,13 @@ export default function OfflineScreen() {
                   {language === 'vi' ? 'Giao diện' : 'Theme'}
                 </Text>
               </View>
-              
+
               <View style={[
                 styles.themeOptionsContainer,
                 isDark && styles.themeOptionsContainerDark
               ]}>
                 {/* Sun (Light Mode) */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.themeButton,
                     !isDark && styles.themeButtonActive
@@ -238,15 +238,15 @@ export default function OfflineScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons 
-                    name="sunny" 
-                    size={14} 
-                    color={!isDark ? "#FFFFFF" : "#7B61FF"} 
+                  <Ionicons
+                    name="sunny"
+                    size={14}
+                    color={!isDark ? "#FFFFFF" : "#7B61FF"}
                   />
                 </TouchableOpacity>
 
                 {/* Moon (Dark Mode) */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.themeButton,
                     isDark && styles.themeButtonActive
@@ -256,10 +256,10 @@ export default function OfflineScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons 
-                    name="moon" 
-                    size={14} 
-                    color={isDark ? "#FFFFFF" : "#7B61FF"} 
+                  <Ionicons
+                    name="moon"
+                    size={14}
+                    color={isDark ? "#FFFFFF" : "#7B61FF"}
                   />
                 </TouchableOpacity>
               </View>
@@ -278,13 +278,13 @@ export default function OfflineScreen() {
                   {language === 'vi' ? 'Ngôn ngữ' : 'Language'}
                 </Text>
               </View>
-              
+
               <View style={[
                 styles.themeOptionsContainer,
                 isDark && styles.themeOptionsContainerDark
               ]}>
                 {/* VI (Tiếng Việt) */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.themeButton,
                     language === 'vi' && styles.themeButtonActive
@@ -294,11 +294,11 @@ export default function OfflineScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text 
-                    style={{ 
-                      fontSize: 10, 
-                      fontWeight: 'bold', 
-                      color: language === 'vi' ? "#FFFFFF" : "#7B61FF" 
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 'bold',
+                      color: language === 'vi' ? "#FFFFFF" : "#7B61FF"
                     }}
                   >
                     VI
@@ -306,7 +306,7 @@ export default function OfflineScreen() {
                 </TouchableOpacity>
 
                 {/* EN (English) */}
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.themeButton,
                     language === 'en' && styles.themeButtonActive
@@ -316,11 +316,11 @@ export default function OfflineScreen() {
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text 
-                    style={{ 
-                      fontSize: 10, 
-                      fontWeight: 'bold', 
-                      color: language === 'en' ? "#FFFFFF" : "#7B61FF" 
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 'bold',
+                      color: language === 'en' ? "#FFFFFF" : "#7B61FF"
                     }}
                   >
                     EN

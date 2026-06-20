@@ -62,7 +62,7 @@ export default function LoadingScreen({ onFinished }: LoadingScreenProps) {
         start={{ x: 0.5, y: 0.1 }}
         end={{ x: 0.5, y: 0.9 }}
       />
-      
+
       {/* Glowing light effect in background */}
       <View style={styles.glowOverlay} />
 
