@@ -62,7 +62,7 @@ export default function LoadingScreen({ onFinished }: LoadingScreenProps) {
         start={{ x: 0.5, y: 0.1 }}
         end={{ x: 0.5, y: 0.9 }}
       />
-      
+
       {/* Glowing light effect in background */}
       <View style={styles.glowOverlay} />
 
@@ -117,7 +117,7 @@ export default function LoadingScreen({ onFinished }: LoadingScreenProps) {
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 999,
