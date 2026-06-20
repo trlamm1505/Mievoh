@@ -34,6 +34,13 @@ export const initDatabase = () => {
         seats TEXT,
         foods TEXT
       );
+      CREATE TABLE IF NOT EXISTS recommended_movies (
+        movieId TEXT PRIMARY KEY NOT NULL,
+        titleVi TEXT,
+        imageUrl TEXT,
+        averageRating REAL,
+        matchScore REAL
+      );
     `);
     console.log('SQLite Database initialized successfully.');
   } catch (error) {

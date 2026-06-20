@@ -7,6 +7,8 @@ import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
 import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { MovieRepository } from '../../../SQLite/repositories/MovieRepository';
+import { Image as ExpoImage } from 'expo-image';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const GAP = 12;
@@ -36,6 +38,20 @@ export default function PersonalRecommendations() {
         // Since backend might wrap it or return array directly:
         const list = response.data || (Array.isArray(response) ? response : []);
         setRecommendations(list);
+        
+        // Save to local SQLite database for offline caching
+        if (list.length > 0) {
+          MovieRepository.saveRecommendedMovies(list);
+          
+          // Prefetch the images of the top 3 movies so they are cached offline!
+          const top3Urls = list.slice(0, 3)
+            .map(item => item.Movie?.imageUrl)
+            .filter((url): url is string => !!url);
+          
+          if (top3Urls.length > 0) {
+            ExpoImage.prefetch(top3Urls, 'disk');
+          }
+        }
       } catch (error) {
         console.log('Error fetching personal recommendations:', error);
         setRecommendations([]);
