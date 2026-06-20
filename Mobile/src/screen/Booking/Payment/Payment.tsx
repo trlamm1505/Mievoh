@@ -73,6 +73,7 @@ export default function Payment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const isHandlingPaymentReturn = useRef(false);
 
   // Voucher state
@@ -158,6 +159,7 @@ export default function Payment() {
 
       if (result?.paymentUrl) {
         isHandlingPaymentReturn.current = false;
+        setIsVerifyingPayment(false);
         setPaymentUrl(result.paymentUrl);
         setShowWebView(true);
         setBookingResult({
@@ -186,19 +188,20 @@ export default function Payment() {
     }
   };
 
-  // Handle WebView navigation state change (detect VNPay return)
-  const handleWebViewNavigation = useCallback(async (navState: any) => {
-    const url = navState.url || '';
+  const handlePaymentReturnUrl = useCallback(async (url: string) => {
     if (!isVNPayReturnUrl(url) || isHandlingPaymentReturn.current) return;
 
     isHandlingPaymentReturn.current = true;
+    setShowWebView(false);
+    setPaymentUrl(null);
+    setIsVerifyingPayment(true);
+
     const params = extractUrlParams(url);
 
     try {
       const responseCode = params.vnp_ResponseCode;
       if (responseCode && responseCode !== '00') {
-        setShowWebView(false);
-        setPaymentUrl(null);
+        setIsVerifyingPayment(false);
         toast.error(
           responseCode === '24'
             ? (language === 'vi' ? 'Bạn đã hủy thanh toán' : 'Payment was cancelled')
@@ -209,26 +212,37 @@ export default function Payment() {
 
       const verifyResult = await verifyVNPayReturnApi(params);
       if (isSuccessfulPaymentResponse(verifyResult, params)) {
-        setShowWebView(false);
         toast.success(t('toast_payment_success'));
         setStep(5);
         navigation.goToTicketResult();
         return;
       }
 
-      setShowWebView(false);
-      setPaymentUrl(null);
+      setIsVerifyingPayment(false);
       toast.error(language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed');
     } catch (err: any) {
       console.error('VNPay return verification error:', err);
-      setShowWebView(false);
-      setPaymentUrl(null);
+      setIsVerifyingPayment(false);
       const msg = err?.response?.data?.message || (language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed');
       toast.error(msg);
     } finally {
       isHandlingPaymentReturn.current = false;
     }
   }, [language, navigation, setStep, t]);
+
+  // Fallback for platforms/events where the return URL already reached navigation state.
+  const handleWebViewNavigation = useCallback((navState: any) => {
+    const url = navState.url || '';
+    void handlePaymentReturnUrl(url);
+  }, [handlePaymentReturnUrl]);
+
+  const handleShouldStartLoad = useCallback((request: any) => {
+    const url = request.url || '';
+    if (!isVNPayReturnUrl(url)) return true;
+
+    void handlePaymentReturnUrl(url);
+    return false;
+  }, [handlePaymentReturnUrl]);
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
@@ -449,6 +463,23 @@ export default function Payment() {
         </TouchableOpacity>
       </View>
 
+      {/* Payment Verification Overlay */}
+      <Modal visible={isVerifyingPayment} transparent animationType="fade">
+        <View style={styles.verifyingOverlay}>
+          <View style={[styles.verifyingCard, isDark && styles.verifyingCardDark]}>
+            <ActivityIndicator size="large" color="#7B61FF" />
+            <Text style={[styles.verifyingTitle, isDark && styles.verifyingTitleDark]}>
+              {language === 'vi' ? 'Đang xác nhận thanh toán' : 'Verifying payment'}
+            </Text>
+            <Text style={styles.verifyingDesc}>
+              {language === 'vi'
+                ? 'Vui lòng chờ trong giây lát, vé của bạn đang được xử lý.'
+                : 'Please wait a moment while your ticket is being processed.'}
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* VNPay WebView Modal */}
       <Modal visible={showWebView} animationType="slide" onRequestClose={() => setShowWebView(false)}>
         <View style={[styles.webViewContainer, isDark && styles.webViewContainerDark]}>
@@ -462,6 +493,7 @@ export default function Payment() {
           {paymentUrl && (
             <WebView
               source={{ uri: paymentUrl }}
+              onShouldStartLoadWithRequest={handleShouldStartLoad}
               onNavigationStateChange={handleWebViewNavigation}
               style={{ flex: 1 }}
               javaScriptEnabled
@@ -652,6 +684,44 @@ const styles = StyleSheet.create({
   payBtn: { borderRadius: 14, overflow: 'hidden' },
   payBtnGradient: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14, gap: 8 },
   payBtnText: { color: 'white', fontSize: 15, fontWeight: '800' },
+  // Payment verification
+  verifyingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 12, 32, 0.32)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  verifyingCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  verifyingCardDark: { backgroundColor: '#1A1740' },
+  verifyingTitle: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  verifyingTitleDark: { color: '#F9FAFB' },
+  verifyingDesc: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
   // WebView
   webViewContainer: { flex: 1, backgroundColor: '#FFFFFF' },
   webViewContainerDark: { backgroundColor: '#0F0C20' },

@@ -37,7 +37,7 @@ export default function TicketResult() {
 
   const handleGoHome = () => {
     resetBooking();
-    navigation.goToHome();
+    navigation.replace('/?skipInitialLoading=true');
   };
 
   const handleShare = async () => {

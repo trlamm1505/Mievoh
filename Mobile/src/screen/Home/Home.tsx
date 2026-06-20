@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { View, TouchableOpacity } from 'react-native';
 import Layout from '../../Layout/Layout';
 import Search from '../../components/Search/Search';
@@ -20,6 +21,8 @@ type TabKey = 'home' | 'rap' | 'phim' | 'uudai' | 'profile';
 
 export default function Home() {
   const { user } = useAuth();
+  const params = useLocalSearchParams<{ skipInitialLoading?: string }>();
+  const skipInitialLoading = params.skipInitialLoading === 'true';
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
@@ -126,7 +129,7 @@ export default function Home() {
   };
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+    <Layout activeTab={activeTab} onTabChange={setActiveTab} skipInitialLoading={skipInitialLoading}>
       {renderContent()}
     </Layout>
   );
