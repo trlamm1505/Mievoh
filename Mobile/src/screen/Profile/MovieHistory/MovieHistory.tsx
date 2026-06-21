@@ -127,7 +127,7 @@ export default function MovieHistory() {
   };
 
   const paidHistory = history.filter((record) => {
-    const status = (record.paymentStatus === 'Success' || record.paymentStatus === 'Failed') ? 'Paid' :
+    const status = record.paymentStatus === 'Success' ? 'Paid' :
       record.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
     return status === 'Paid';
   });
@@ -206,7 +206,7 @@ export default function MovieHistory() {
             const combos = comboList || (language === 'vi' ? 'Không' : 'None');
             
             const status: 'Paid' | 'Pending' | 'Cancelled' = 
-              (record.paymentStatus === 'Success' || record.paymentStatus === 'Failed') ? 'Paid' :
+              record.paymentStatus === 'Success' ? 'Paid' :
               record.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
 
             return (

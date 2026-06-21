@@ -9,7 +9,7 @@ export class BookingRepository {
   static saveBookings(email: string, items: BookingHistoryItem[]): void {
     try {
       const paidItems = items.filter(item => {
-        const status = (item.paymentStatus === 'Success' || item.paymentStatus === 'Failed') ? 'Paid' :
+        const status = item.paymentStatus === 'Success' ? 'Paid' :
           item.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
         return status === 'Paid';
       });
@@ -151,7 +151,7 @@ export class BookingRepository {
 
       if (Array.isArray(remoteData)) {
         const filteredRemote = remoteData.filter(item => {
-          const status = (item.paymentStatus === 'Success' || item.paymentStatus === 'Failed') ? 'Paid' :
+          const status = item.paymentStatus === 'Success' ? 'Paid' :
             item.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
           return status === 'Paid';
         });
