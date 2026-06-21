@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,49 @@ import { useBooking } from '../../../contextAPI/Booking/BookingContext';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
 import { useAuth } from '../../../contextAPI/Auth/AuthContext';
-import { createBookingApi, getMyVouchersApi, Voucher, CreateBookingDto } from '../../../axios/booking';
+import { createBookingApi, getMyVouchersApi, verifyVNPayReturnApi, Voucher, CreateBookingDto } from '../../../axios/booking';
 import { toast } from '../../../components/Toast/Toast';
+
+const extractVoucherList = (payload: any): Voucher[] => {
+  const candidates = [
+    payload,
+    payload?.data,
+    payload?.data?.data,
+    payload?.vouchers,
+    payload?.data?.vouchers,
+  ];
+
+  return candidates.find(Array.isArray) || [];
+};
+
+const extractUrlParams = (url: string) => {
+  const queryString = url.split('?')[1]?.split('#')[0] || '';
+  return queryString.split('&').reduce<Record<string, string>>((params, pair) => {
+    if (!pair) return params;
+
+    const [rawKey, rawValue = ''] = pair.split('=');
+    const key = decodeURIComponent(rawKey);
+    const value = decodeURIComponent(rawValue.replace(/\+/g, ' '));
+    params[key] = value;
+    return params;
+  }, {});
+};
+
+const isVNPayReturnUrl = (url: string) => (
+  url.includes('vnpay-return') || url.includes('payment-success') || url.includes('payment-result')
+);
+
+const isSuccessfulPaymentResponse = (payload: any, params: Record<string, string>) => {
+  const data = payload?.data || payload;
+  const responseCode = params.vnp_ResponseCode || data?.code || data?.responseCode;
+  const transactionStatus = params.vnp_TransactionStatus || data?.transactionStatus;
+  const message = String(data?.message || '').toLowerCase();
+
+  return responseCode === '00'
+    || transactionStatus === '00'
+    || message.includes('success')
+    || message.includes('thành công');
+};
 
 export default function Payment() {
   const navigation = useAppNavigation();
@@ -32,6 +73,8 @@ export default function Payment() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const isHandlingPaymentReturn = useRef(false);
 
   // Voucher state
   const [voucherCode, setVoucherCode] = useState('');
@@ -58,13 +101,11 @@ export default function Payment() {
     setLoadingVouchers(true);
     try {
       const res = await getMyVouchersApi();
-      const data = res?.data;
-      const voucherList = (data as any)?.data || data;
-      if (Array.isArray(voucherList)) {
-        setVouchers(voucherList.filter((v: Voucher) => v.isActive));
-      }
+      const voucherList = extractVoucherList(res);
+      setVouchers(voucherList.filter((v: Voucher) => v.isActive));
     } catch (err) {
       console.error('Error fetching vouchers:', err);
+      setVouchers([]);
     } finally {
       setLoadingVouchers(false);
     }
@@ -100,13 +141,14 @@ export default function Payment() {
 
     setIsSubmitting(true);
     try {
+      const enteredVoucherCode = voucherCode.trim();
       const bookingData: CreateBookingDto = {
         showtimeId: showtime.showtimeId,
         seats: selectedSeats.map(s => s.seatId),
         foods: selectedFoods.length > 0
           ? selectedFoods.map(f => ({ foodId: f.food.foodId, quantity: f.quantity }))
           : undefined,
-        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+        voucherCode: appliedVoucher?.code || enteredVoucherCode || undefined,
       };
 
       const res = await createBookingApi(bookingData);
@@ -116,6 +158,8 @@ export default function Payment() {
       toast.success(t('toast_payment_initiated'));
 
       if (result?.paymentUrl) {
+        isHandlingPaymentReturn.current = false;
+        setIsVerifyingPayment(false);
         setPaymentUrl(result.paymentUrl);
         setShowWebView(true);
         setBookingResult({
@@ -144,17 +188,61 @@ export default function Payment() {
     }
   };
 
-  // Handle WebView navigation state change (detect VNPay return)
+  const handlePaymentReturnUrl = useCallback(async (url: string) => {
+    if (!isVNPayReturnUrl(url) || isHandlingPaymentReturn.current) return;
+
+    isHandlingPaymentReturn.current = true;
+    setShowWebView(false);
+    setPaymentUrl(null);
+    setIsVerifyingPayment(true);
+
+    const params = extractUrlParams(url);
+
+    try {
+      const responseCode = params.vnp_ResponseCode;
+      if (responseCode && responseCode !== '00') {
+        setIsVerifyingPayment(false);
+        toast.error(
+          responseCode === '24'
+            ? (language === 'vi' ? 'Bạn đã hủy thanh toán' : 'Payment was cancelled')
+            : (language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed')
+        );
+        return;
+      }
+
+      const verifyResult = await verifyVNPayReturnApi(params);
+      if (isSuccessfulPaymentResponse(verifyResult, params)) {
+        toast.success(t('toast_payment_success'));
+        setStep(5);
+        navigation.goToTicketResult();
+        return;
+      }
+
+      setIsVerifyingPayment(false);
+      toast.error(language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed');
+    } catch (err: any) {
+      console.error('VNPay return verification error:', err);
+      setIsVerifyingPayment(false);
+      const msg = err?.response?.data?.message || (language === 'vi' ? 'Thanh toán không thành công' : 'Payment failed');
+      toast.error(msg);
+    } finally {
+      isHandlingPaymentReturn.current = false;
+    }
+  }, [language, navigation, setStep, t]);
+
+  // Fallback for platforms/events where the return URL already reached navigation state.
   const handleWebViewNavigation = useCallback((navState: any) => {
     const url = navState.url || '';
-    // VNPay typically redirects to a return URL after payment
-    if (url.includes('vnpay-return') || url.includes('payment-success') || url.includes('payment-result')) {
-      setShowWebView(false);
-      toast.success(t('toast_payment_success'));
-      setStep(5);
-      navigation.goToTicketResult();
-    }
-  }, [navigation, setStep, t]);
+    void handlePaymentReturnUrl(url);
+  }, [handlePaymentReturnUrl]);
+
+  const handleShouldStartLoad = useCallback((request: any) => {
+    const url = request.url || '';
+    if (!isVNPayReturnUrl(url)) return true;
+
+    void handlePaymentReturnUrl(url);
+    return false;
+  }, [handlePaymentReturnUrl]);
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
@@ -375,6 +463,23 @@ export default function Payment() {
         </TouchableOpacity>
       </View>
 
+      {/* Payment Verification Overlay */}
+      <Modal visible={isVerifyingPayment} transparent animationType="fade">
+        <View style={styles.verifyingOverlay}>
+          <View style={[styles.verifyingCard, isDark && styles.verifyingCardDark]}>
+            <ActivityIndicator size="large" color="#7B61FF" />
+            <Text style={[styles.verifyingTitle, isDark && styles.verifyingTitleDark]}>
+              {language === 'vi' ? 'Đang xác nhận thanh toán' : 'Verifying payment'}
+            </Text>
+            <Text style={styles.verifyingDesc}>
+              {language === 'vi'
+                ? 'Vui lòng chờ trong giây lát, vé của bạn đang được xử lý.'
+                : 'Please wait a moment while your ticket is being processed.'}
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* VNPay WebView Modal */}
       <Modal visible={showWebView} animationType="slide" onRequestClose={() => setShowWebView(false)}>
         <View style={[styles.webViewContainer, isDark && styles.webViewContainerDark]}>
@@ -388,6 +493,7 @@ export default function Payment() {
           {paymentUrl && (
             <WebView
               source={{ uri: paymentUrl }}
+              onShouldStartLoadWithRequest={handleShouldStartLoad}
               onNavigationStateChange={handleWebViewNavigation}
               style={{ flex: 1 }}
               javaScriptEnabled
@@ -578,6 +684,44 @@ const styles = StyleSheet.create({
   payBtn: { borderRadius: 14, overflow: 'hidden' },
   payBtnGradient: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14, gap: 8 },
   payBtnText: { color: 'white', fontSize: 15, fontWeight: '800' },
+  // Payment verification
+  verifyingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 12, 32, 0.32)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  verifyingCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  verifyingCardDark: { backgroundColor: '#1A1740' },
+  verifyingTitle: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  verifyingTitleDark: { color: '#F9FAFB' },
+  verifyingDesc: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
   // WebView
   webViewContainer: { flex: 1, backgroundColor: '#FFFFFF' },
   webViewContainerDark: { backgroundColor: '#0F0C20' },

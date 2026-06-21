@@ -12,13 +12,14 @@ interface LayoutProps {
   children: React.ReactNode;
   activeTab?: TabKey;
   onTabChange?: (tab: TabKey) => void;
+  skipInitialLoading?: boolean;
 }
 
-export default function Layout({ children, activeTab, onTabChange }: LayoutProps) {
+export default function Layout({ children, activeTab, onTabChange, skipInitialLoading = false }: LayoutProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [isOffline, setIsOffline] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(!skipInitialLoading);
 
   const checkConnection = async () => {
     try {
@@ -36,6 +37,7 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
           if (prev === true) {
             // Transition from offline to online: trigger data reloading overlay
             setIsLoadingData(true);
+            setTimeout(() => onTabChange?.('home'), 0);
           }
           return false;
         });
@@ -61,7 +63,8 @@ export default function Layout({ children, activeTab, onTabChange }: LayoutProps
 
   return (
     <View 
-      style={{ flex: 1, position: 'relative', backgroundColor: isDark ? '#0F0C20' : '#FFFFFF' }}
+      style={{ flex: 1, backgroundColor: isDark ? '#0F0C20' : '#FFFFFF' }}
+      className="relative"
     >
       {/* Header */}
       <Header />

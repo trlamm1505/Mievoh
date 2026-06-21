@@ -20,6 +20,37 @@ import { toast } from '../../../components/Toast/Toast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Default food images based on name keywords (when API returns imageUrl: null)
+// Using free Twemoji CDN for food emoji icons
+const DEFAULT_FOOD_IMAGES: Record<string, string> = {
+  hotdog: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f32d.png',   // 🌭
+  nachos: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9c0.png',   // 🧀
+  'bắp': 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f37f.png',    // 🍿
+  popcorn: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f37f.png',  // 🍿
+  combo: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f371.png',    // 🍱
+  'nước': 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f964.png',   // 🥤
+  drink: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f964.png',    // 🥤
+  'gà': 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f357.png',     // 🍗
+  chicken: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f357.png',  // 🍗
+  snack: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f35f.png',    // 🍟
+  'nước ép': 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9c3.png', // 🧃
+  'nước suối': 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4a7.png', // 💧
+  caramel: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f36c.png',  // 🍬
+  'phô mai': 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f9c0.png', // 🧀
+};
+
+const getFoodFallbackImage = (name: string): string | null => {
+  const lowerName = name.toLowerCase();
+  // Check specific (longer) keywords first, then generic ones
+  const priorityOrder = ['nước ép', 'nước suối', 'phô mai', 'caramel', 'hotdog', 'nachos', 'gà', 'chicken', 'snack', 'nước', 'drink', 'bắp', 'popcorn', 'combo'];
+  for (const key of priorityOrder) {
+    if (lowerName.includes(key)) {
+      return DEFAULT_FOOD_IMAGES[key];
+    }
+  }
+  return null;
+};
+
 export default function SelectCombo() {
   const navigation = useAppNavigation();
   const { state, setFoodQuantity, setStep, seatsTotalPrice, foodsTotalPrice, totalPrice } = useBooking();
@@ -165,10 +196,13 @@ export default function SelectCombo() {
         ) : (
           foods.map(food => {
             const qty = getQuantity(food.foodId);
+            const fallbackImage = getFoodFallbackImage(food.name);
             return (
               <View key={food.foodId} style={[styles.foodCard, isDark && styles.foodCardDark]}>
                 {food.imageUrl ? (
                   <Image source={{ uri: food.imageUrl }} style={styles.foodImage} resizeMode="cover" />
+                ) : fallbackImage ? (
+                  <Image source={{ uri: fallbackImage }} style={[styles.foodImage, styles.foodImageFallback]} resizeMode="contain" />
                 ) : (
                   <View style={[styles.foodImage, styles.foodImagePlaceholder]}>
                     <Ionicons name="fast-food-outline" size={28} color="#D1D5DB" />
@@ -314,6 +348,9 @@ const styles = StyleSheet.create({
   foodImage: { width: 80, height: 80, borderRadius: 12 },
   foodImagePlaceholder: {
     backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
+  },
+  foodImageFallback: {
+    backgroundColor: '#F9F5FF', padding: 12, borderRadius: 12,
   },
   foodInfo: { flex: 1, marginLeft: 12 },
   foodName: { fontSize: 14, fontWeight: '700', color: '#1F2937', marginBottom: 3 },

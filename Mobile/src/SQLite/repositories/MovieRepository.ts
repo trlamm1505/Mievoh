@@ -9,6 +9,20 @@ export class MovieRepository {
    */
   static saveRecommendedMovies(items: PersonalRecommendation[]): void {
     try {
+      const currentLocal = this.getRecommendedMovies();
+      const limitItems = items.slice(0, 3);
+      
+      const currentLocalIds = currentLocal.map(m => m.movieId);
+      const newIds = limitItems.map(item => item.movieId);
+
+      const hasChanges = currentLocalIds.length !== newIds.length ||
+        newIds.some((id, index) => currentLocalIds[index] !== id);
+
+      if (!hasChanges) {
+        console.log('No change in recommended movie IDs. Skipping write.');
+        return;
+      }
+
       db.withTransactionSync(() => {
         // Clear all previous recommended movies
         db.runSync('DELETE FROM recommended_movies');
@@ -20,8 +34,6 @@ export class MovieRepository {
         `);
 
         try {
-          // Take first 3 recommended movies
-          const limitItems = items.slice(0, 3);
           for (const item of limitItems) {
             const movie = item.Movie || {};
             statement.executeSync([
@@ -36,7 +48,7 @@ export class MovieRepository {
           statement.finalizeSync();
         }
       });
-      console.log(`Saved 3 recommended movies to SQLite.`);
+      console.log(`Saved ${limitItems.length} recommended movies to SQLite.`);
     } catch (error) {
       console.error('Failed to save recommended movies to SQLite:', error);
     }

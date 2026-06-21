@@ -27,6 +27,7 @@ import { WebView } from 'react-native-webview';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
+import LoadingScreen from '../../Loading/LoadingScreen';
 
 function getYoutubeVideoId(url: string): string | null {
   if (!url) return null;
@@ -65,6 +66,52 @@ export default function MovieDetail() {
 
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showLoading, setShowLoading] = useState(false);
+  const [wasOffline, setWasOffline] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const checkConnection = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        const response = await fetch('https://clients3.google.com/generate_204', {
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        clearTimeout(timeoutId);
+        
+        if (response.status === 204 || response.ok) {
+          if (active) {
+            setWasOffline((prev) => {
+              if (prev) {
+                setShowLoading(true);
+              }
+              return false;
+            });
+          }
+        } else {
+          if (active) {
+            setWasOffline(true);
+          }
+        }
+      } catch (error) {
+        if (active) {
+          setWasOffline(true);
+        }
+      }
+    };
+
+    checkConnection();
+    const interval = setInterval(checkConnection, 5000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
   const [showtimesData, setShowtimesData] = useState<any>(null);
   const [loadingShowtimes, setLoadingShowtimes] = useState(false);
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
@@ -290,6 +337,10 @@ export default function MovieDetail() {
       setSubmittingReview(false);
     }
   };
+
+  if (showLoading) {
+    return <LoadingScreen onFinished={() => navigation.goToHome()} />;
+  }
 
   if (loading) {
     return (
@@ -815,44 +866,53 @@ export default function MovieDetail() {
                         
                         {/* Time slots */}
                         <View style={styles.timeSlotsRow}>
-                          {complex.showtimes.map((st: any) => (
-                            <TouchableOpacity
-                              key={st.showtimeId}
-                              onPress={() => {
-                                // Set movie info into BookingContext
-                                setBookingMovie({
-                                  movieId: movie.movieId,
-                                  title_vi: movie.title_vi,
-                                  title_en: movie.title_en,
-                                  imageUrl: movie.imageUrl,
-                                  duration: movie.duration,
-                                  ageRestriction: movie.ageRestriction,
-                                });
-                                // Set selected showtime into BookingContext
-                                setBookingShowtime({
-                                  showtimeId: st.showtimeId,
-                                  showDateTime: st.showDateTime,
-                                  format: st.format || '2D',
-                                  ticketPrice: st.ticketPrice || 0,
-                                  cinemaId: st.cinemaId || '',
-                                  cinemaName: st.Cinema?.name || '',
-                                  cinemaComplexId: complex.cinemaComplexId || '',
-                                  cinemaComplexName: complex.name || '',
-                                  cinemaComplexAddress: complex.address || '',
-                                });
-                                setBookingStep(2);
-                                setIsBottomSheetVisible(false);
-                                navigation.goToSelectSeat();
-                              }}
-                              style={[styles.timeSlotBtn, isDark && styles.timeSlotBtnDark]}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={styles.timeSlotText}>
-                                {new Date(st.showDateTime).toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-                              </Text>
-                              <Text style={styles.timeSlotFormat}>{st.format || '2D'}</Text>
-                            </TouchableOpacity>
-                          ))}
+                          {complex.showtimes.map((st: any) => {
+                            const isPast = new Date(st.showDateTime).getTime() < Date.now();
+                            return (
+                              <TouchableOpacity
+                                key={st.showtimeId}
+                                disabled={isPast}
+                                onPress={() => {
+                                  if (isPast) return;
+                                  // Set movie info into BookingContext
+                                  setBookingMovie({
+                                    movieId: movie.movieId,
+                                    title_vi: movie.title_vi,
+                                    title_en: movie.title_en,
+                                    imageUrl: movie.imageUrl,
+                                    duration: movie.duration,
+                                    ageRestriction: movie.ageRestriction,
+                                  });
+                                  // Set selected showtime into BookingContext
+                                  setBookingShowtime({
+                                    showtimeId: st.showtimeId,
+                                    showDateTime: st.showDateTime,
+                                    format: st.format || '2D',
+                                    ticketPrice: st.ticketPrice || 0,
+                                    cinemaId: st.cinemaId || '',
+                                    cinemaName: st.Cinema?.name || '',
+                                    cinemaComplexId: complex.cinemaComplexId || '',
+                                    cinemaComplexName: complex.name || '',
+                                    cinemaComplexAddress: complex.address || '',
+                                  });
+                                  setBookingStep(2);
+                                  setIsBottomSheetVisible(false);
+                                  navigation.goToSelectSeat();
+                                }}
+                                style={[
+                                  styles.timeSlotBtn,
+                                  isDark && styles.timeSlotBtnDark,
+                                  isPast && (isDark ? styles.timeSlotBtnDisabledDark : styles.timeSlotBtnDisabled)
+                                ]}
+                                activeOpacity={isPast ? 1 : 0.7}
+                              >
+                                <Text style={[styles.timeSlotText, isPast && styles.timeSlotTextDisabled]}>
+                                  {new Date(st.showDateTime).toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
+                                </Text>
+                                <Text style={[styles.timeSlotFormat, isPast && styles.timeSlotTextDisabled]}>{st.format || '2D'}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
                         </View>
                       </View>
                     ))}
@@ -1706,5 +1766,18 @@ const styles = StyleSheet.create({
   timeSlotBtnDark: {
     backgroundColor: 'rgba(123, 97, 255, 0.15)',
     borderColor: 'rgba(123, 97, 255, 0.3)',
+  },
+  timeSlotBtnDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    opacity: 0.45,
+  },
+  timeSlotBtnDisabledDark: {
+    backgroundColor: '#110E2E',
+    borderColor: '#1E1B3A',
+    opacity: 0.35,
+  },
+  timeSlotTextDisabled: {
+    color: '#9CA3AF',
   },
 });

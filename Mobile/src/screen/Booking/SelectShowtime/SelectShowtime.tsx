@@ -20,6 +20,65 @@ import { toast } from '../../../components/Toast/Toast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+type CinemaShowtimeGroup = {
+  key: string;
+  cinemaName: string;
+  showtimes: any[];
+};
+
+const sortShowtimesByTime = (showtimes: any[]) => (
+  [...showtimes].sort((a, b) => {
+    const timeA = new Date(a?.showDateTime || 0).getTime();
+    const timeB = new Date(b?.showDateTime || 0).getTime();
+    return timeA - timeB;
+  })
+);
+
+const getShowtimeCinemaName = (showtime: any) => (
+  showtime?.Cinema?.name || showtime?.cinemaName || showtime?.cinema?.name || 'Cinema'
+);
+
+const getCinemaShowtimeGroups = (complex: any): CinemaShowtimeGroup[] => {
+  const nestedCinemas = complex?.cinemas || complex?.Cinemas;
+  if (Array.isArray(nestedCinemas) && nestedCinemas.length > 0) {
+    return nestedCinemas
+      .map((cinema: any) => {
+        const showtimes = cinema?.showtimes || cinema?.Showtimes || [];
+        const cinemaName = cinema?.name || cinema?.cinemaName || 'Cinema';
+
+        return {
+          key: cinema?.cinemaId || cinemaName,
+          cinemaName,
+          showtimes: sortShowtimesByTime(showtimes.map((st: any) => ({
+            ...st,
+            cinemaId: st?.cinemaId || cinema?.cinemaId || '',
+            Cinema: st?.Cinema || cinema,
+          }))),
+        };
+      })
+      .filter((group: CinemaShowtimeGroup) => group.showtimes.length > 0);
+  }
+
+  const showtimes = complex?.showtimes || complex?.Showtimes || [];
+  const groups = new Map<string, CinemaShowtimeGroup>();
+
+  showtimes.forEach((st: any) => {
+    const cinemaName = getShowtimeCinemaName(st);
+    const key = st?.cinemaId || st?.Cinema?.cinemaId || cinemaName;
+
+    if (!groups.has(key)) {
+      groups.set(key, { key, cinemaName, showtimes: [] });
+    }
+
+    groups.get(key)?.showtimes.push(st);
+  });
+
+  return Array.from(groups.values()).map(group => ({
+    ...group,
+    showtimes: sortShowtimesByTime(group.showtimes),
+  }));
+};
+
 export default function SelectShowtime() {
   const navigation = useAppNavigation();
   const { state, setShowtime, setStep } = useBooking();
@@ -92,14 +151,14 @@ export default function SelectShowtime() {
     fetchShowtimes();
   }, [movie?.movieId, selectedDateIndex, dateOptions]);
 
-  const handleSelectShowtime = (st: any, complex: any) => {
+  const handleSelectShowtime = (st: any, complex: any, cinemaName?: string) => {
     const info: BookingShowtime = {
       showtimeId: st.showtimeId,
       showDateTime: st.showDateTime,
       format: st.format || '2D',
       ticketPrice: st.ticketPrice || 0,
       cinemaId: st.cinemaId || '',
-      cinemaName: st.Cinema?.name || '',
+      cinemaName: cinemaName || st.Cinema?.name || st.cinemaName || '',
       cinemaComplexId: complex.cinemaComplexId || '',
       cinemaComplexName: complex.name || '',
       cinemaComplexAddress: complex.address || '',
@@ -269,40 +328,55 @@ export default function SelectShowtime() {
                   </View>
 
                   {/* Time Slots */}
-                  <View style={styles.timeSlotsRow}>
-                    {complex.showtimes.map((st: any) => {
-                      const isActive = selectedShowtimeId === st.showtimeId;
-                      const time = new Date(st.showDateTime).toLocaleTimeString(
-                        language === 'vi' ? 'vi-VN' : 'en-US',
-                        { hour: '2-digit', minute: '2-digit' }
-                      );
-                      return (
-                        <TouchableOpacity
-                          key={st.showtimeId}
-                          onPress={() => handleSelectShowtime(st, complex)}
-                          activeOpacity={0.7}
-                          style={[
-                            styles.timeSlot,
-                            isDark && !isActive && styles.timeSlotDark,
-                            isActive && styles.timeSlotActive,
-                          ]}
-                        >
-                          <Text style={[
-                            styles.timeSlotTime,
-                            isActive && styles.timeSlotTimeActive,
-                          ]}>
-                            {time}
-                          </Text>
-                          <Text style={[
-                            styles.timeSlotFormat,
-                            isActive && styles.timeSlotFormatActive,
-                          ]}>
-                            {st.format || '2D'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  {getCinemaShowtimeGroups(complex).map(group => (
+                    <View key={group.key} style={[styles.cinemaGroupContainer, isDark && styles.cinemaGroupContainerDark]}>
+                      <View style={styles.hallLabel}>
+                        <Ionicons name="tv-outline" size={13} color="#9CA3AF" />
+                        <Text style={[styles.hallLabelText, isDark && styles.hallLabelTextDark]}>
+                          {group.cinemaName}
+                        </Text>
+                      </View>
+                      <View style={styles.timeSlotsRow}>
+                        {group.showtimes.map((st: any) => {
+                          const isActive = selectedShowtimeId === st.showtimeId;
+                          const isPast = new Date(st.showDateTime).getTime() < Date.now();
+                          const time = new Date(st.showDateTime).toLocaleTimeString(
+                            language === 'vi' ? 'vi-VN' : 'en-US',
+                            { hour: '2-digit', minute: '2-digit' }
+                          );
+                          return (
+                            <TouchableOpacity
+                              key={st.showtimeId}
+                              onPress={() => !isPast && handleSelectShowtime(st, complex, group.cinemaName)}
+                              disabled={isPast}
+                              activeOpacity={isPast ? 1 : 0.7}
+                              style={[
+                                styles.timeSlot,
+                                isDark && !isActive && styles.timeSlotDark,
+                                isActive && styles.timeSlotActive,
+                                isPast && (isDark ? styles.timeSlotDisabledDark : styles.timeSlotDisabled),
+                              ]}
+                            >
+                              <Text style={[
+                                styles.timeSlotTime,
+                                isActive && styles.timeSlotTimeActive,
+                                isPast && styles.timeSlotTextDisabled,
+                              ]}>
+                                {time}
+                              </Text>
+                              <Text style={[
+                                styles.timeSlotFormat,
+                                isActive && styles.timeSlotFormatActive,
+                                isPast && styles.timeSlotTextDisabled,
+                              ]}>
+                                {st.format || '2D'}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))}
                 </View>
               ))}
             </View>
@@ -602,6 +676,29 @@ const styles = StyleSheet.create({
   complexInfo: {
     marginBottom: 10,
   },
+  cinemaGroupContainer: {
+    paddingTop: 10,
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  cinemaGroupContainerDark: {
+    borderTopColor: '#2E2856',
+  },
+  hallLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 8,
+  },
+  hallLabelText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  hallLabelTextDark: {
+    color: '#9CA3AF',
+  },
   complexName: {
     fontSize: 14,
     fontWeight: '600',
@@ -656,6 +753,19 @@ const styles = StyleSheet.create({
   },
   timeSlotFormatActive: {
     color: '#7B61FF',
+  },
+  timeSlotDisabled: {
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+    opacity: 0.45,
+  },
+  timeSlotDisabledDark: {
+    borderColor: '#1E1B3A',
+    backgroundColor: '#110E2E',
+    opacity: 0.35,
+  },
+  timeSlotTextDisabled: {
+    color: '#9CA3AF',
   },
   // Bottom Bar
   bottomBar: {

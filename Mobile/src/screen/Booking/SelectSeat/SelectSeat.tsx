@@ -293,10 +293,7 @@ export default function SelectSeat() {
                   <View style={[styles.legendDot, { backgroundColor: '#FDE68A', borderWidth: 1, borderColor: '#F59E0B' }]} />
                   <Text style={[styles.legendText, isDark && styles.legendTextDark]}>{t('seat_type_vip')}</Text>
                 </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#FBCFE8', borderWidth: 1, borderColor: '#EC4899', width: 24 }]} />
-                  <Text style={[styles.legendText, isDark && styles.legendTextDark]}>{t('seat_type_sweetbox')}</Text>
-                </View>
+
               </View>
             </View>
           </>
