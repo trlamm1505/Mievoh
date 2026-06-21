@@ -37,6 +37,7 @@ export default function Layout({ children, activeTab, onTabChange, skipInitialLo
           if (prev === true) {
             // Transition from offline to online: trigger data reloading overlay
             setIsLoadingData(true);
+            setTimeout(() => onTabChange?.('home'), 0);
           }
           return false;
         });

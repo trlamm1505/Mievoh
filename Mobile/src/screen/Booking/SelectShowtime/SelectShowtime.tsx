@@ -339,6 +339,7 @@ export default function SelectShowtime() {
                       <View style={styles.timeSlotsRow}>
                         {group.showtimes.map((st: any) => {
                           const isActive = selectedShowtimeId === st.showtimeId;
+                          const isPast = new Date(st.showDateTime).getTime() < Date.now();
                           const time = new Date(st.showDateTime).toLocaleTimeString(
                             language === 'vi' ? 'vi-VN' : 'en-US',
                             { hour: '2-digit', minute: '2-digit' }
@@ -346,23 +347,27 @@ export default function SelectShowtime() {
                           return (
                             <TouchableOpacity
                               key={st.showtimeId}
-                              onPress={() => handleSelectShowtime(st, complex, group.cinemaName)}
-                              activeOpacity={0.7}
+                              onPress={() => !isPast && handleSelectShowtime(st, complex, group.cinemaName)}
+                              disabled={isPast}
+                              activeOpacity={isPast ? 1 : 0.7}
                               style={[
                                 styles.timeSlot,
                                 isDark && !isActive && styles.timeSlotDark,
                                 isActive && styles.timeSlotActive,
+                                isPast && (isDark ? styles.timeSlotDisabledDark : styles.timeSlotDisabled),
                               ]}
                             >
                               <Text style={[
                                 styles.timeSlotTime,
                                 isActive && styles.timeSlotTimeActive,
+                                isPast && styles.timeSlotTextDisabled,
                               ]}>
                                 {time}
                               </Text>
                               <Text style={[
                                 styles.timeSlotFormat,
                                 isActive && styles.timeSlotFormatActive,
+                                isPast && styles.timeSlotTextDisabled,
                               ]}>
                                 {st.format || '2D'}
                               </Text>
@@ -748,6 +753,19 @@ const styles = StyleSheet.create({
   },
   timeSlotFormatActive: {
     color: '#7B61FF',
+  },
+  timeSlotDisabled: {
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F3F4F6',
+    opacity: 0.45,
+  },
+  timeSlotDisabledDark: {
+    borderColor: '#1E1B3A',
+    backgroundColor: '#110E2E',
+    opacity: 0.35,
+  },
+  timeSlotTextDisabled: {
+    color: '#9CA3AF',
   },
   // Bottom Bar
   bottomBar: {

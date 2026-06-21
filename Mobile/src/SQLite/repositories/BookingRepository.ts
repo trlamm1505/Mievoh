@@ -8,6 +8,12 @@ export class BookingRepository {
    */
   static saveBookings(email: string, items: BookingHistoryItem[]): void {
     try {
+      const paidItems = items.filter(item => {
+        const status = item.paymentStatus === 'Success' ? 'Paid' :
+          item.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
+        return status === 'Paid';
+      });
+
       db.withTransactionSync(() => {
         // Clear previous bookings for this user to sync with latest state
         db.runSync('DELETE FROM bookings WHERE email = ?', [email]);
@@ -20,7 +26,7 @@ export class BookingRepository {
         `);
 
         try {
-          for (const item of items) {
+          for (const item of paidItems) {
             const seatsStr = item.BookingDetails
               ? item.BookingDetails.map((d: any) => d.Seat?.name || '').filter(Boolean).join(', ')
               : '';
@@ -47,7 +53,7 @@ export class BookingRepository {
           statement.finalizeSync();
         }
       });
-      console.log(`Saved ${items.length} bookings to SQLite for user ${email}.`);
+      console.log(`Saved ${paidItems.length} bookings to SQLite for user ${email}.`);
     } catch (error) {
       console.error('Failed to save bookings to SQLite:', error);
     }
@@ -144,11 +150,17 @@ export class BookingRepository {
       const remoteData = (res && (res as any).data) ? (res as any).data : res;
 
       if (Array.isArray(remoteData)) {
+        const filteredRemote = remoteData.filter(item => {
+          const status = item.paymentStatus === 'Success' ? 'Paid' :
+            item.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
+          return status === 'Paid';
+        });
+
         const localData = this.getBookings(email);
         
-        if (this.hasBookingChanges(localData, remoteData)) {
+        if (this.hasBookingChanges(localData, filteredRemote)) {
           console.log('Detecting new/updated booking history. Syncing to SQLite...');
-          this.saveBookings(email, remoteData);
+          this.saveBookings(email, filteredRemote);
         } else {
           console.log('Booking history in SQLite is up-to-date. Skipping write.');
         }

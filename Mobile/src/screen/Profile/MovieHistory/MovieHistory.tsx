@@ -126,6 +126,12 @@ export default function MovieHistory() {
     );
   };
 
+  const paidHistory = history.filter((record) => {
+    const status = record.paymentStatus === 'Success' ? 'Paid' :
+      record.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
+    return status === 'Paid';
+  });
+
   return (
     <SafeAreaView 
       edges={['top']} 
@@ -158,7 +164,7 @@ export default function MovieHistory() {
           <View className="items-center justify-center py-20">
             <ActivityIndicator size="large" color="#7B61FF" />
           </View>
-        ) : history.length === 0 ? (
+        ) : paidHistory.length === 0 ? (
           <View 
             style={{ 
               backgroundColor: isDark ? '#1D183B' : '#FFFFFF', 
@@ -186,7 +192,7 @@ export default function MovieHistory() {
             </Text>
           </View>
         ) : (
-          history.map((record) => {
+          paidHistory.map((record) => {
             const showDateTime = new Date(record.Showtime.showDateTime);
             const formattedTime = showDateTime.toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' });
             const formattedDate = showDateTime.toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -200,7 +206,7 @@ export default function MovieHistory() {
             const combos = comboList || (language === 'vi' ? 'Không' : 'None');
             
             const status: 'Paid' | 'Pending' | 'Cancelled' = 
-              (record.paymentStatus === 'Success' || record.paymentStatus === 'Failed') ? 'Paid' :
+              record.paymentStatus === 'Success' ? 'Paid' :
               record.paymentStatus === 'Pending' ? 'Pending' : 'Cancelled';
 
             return (
