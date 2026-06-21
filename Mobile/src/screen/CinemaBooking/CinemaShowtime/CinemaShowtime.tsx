@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,64 @@ import { useLocalSearchParams } from 'expo-router';
 import { toast } from '../../../components/Toast/Toast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+type CinemaShowtimeGroup = {
+  cinemaName: string;
+  showtimes: any[];
+};
+
+const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
+const SHOWTIME_DATE_TIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/;
+
+const getShowtimeWallClockTime = (showDateTime?: string | null) => {
+  if (!showDateTime) return NaN;
+
+  const match = showDateTime.match(SHOWTIME_DATE_TIME_REGEX);
+  if (!match) return new Date(showDateTime).getTime();
+
+  const [, year, month, day, hour, minute] = match;
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute)
+  );
+};
+
+const getCurrentVietnamWallClockTime = () => (
+  Math.floor((new Date().getTime() + VIETNAM_OFFSET_MS) / 60000) * 60000
+);
+
+const formatShowtimeTime = (showDateTime: string | null | undefined, locale: string) => {
+  const match = showDateTime?.match(SHOWTIME_DATE_TIME_REGEX);
+  if (match) return `${match[4]}:${match[5]}`;
+
+  return new Date(showDateTime || 0).toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const isFutureShowtime = (showtime: any, now: number) => {
+  const showtimeTime = getShowtimeWallClockTime(showtime?.showDateTime);
+  return Number.isFinite(showtimeTime) && showtimeTime > now;
+};
+
+const sortShowtimesByTime = (showtimes: any[]) => (
+  [...showtimes].sort((a, b) => {
+    const timeA = getShowtimeWallClockTime(a?.showDateTime);
+    const timeB = getShowtimeWallClockTime(b?.showDateTime);
+    return timeA - timeB;
+  })
+);
+
+const subscribeToCurrentMinute = (onStoreChange: () => void) => {
+  const timer = setInterval(onStoreChange, 30000);
+  return () => clearInterval(timer);
+};
+
+const getCurrentMinuteSnapshot = getCurrentVietnamWallClockTime;
 
 export default function CinemaShowtime() {
   const navigation = useAppNavigation();
@@ -46,6 +104,11 @@ export default function CinemaShowtime() {
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
   const [showtimesData, setShowtimesData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const currentTime = useSyncExternalStore(
+    subscribeToCurrentMinute,
+    getCurrentMinuteSnapshot,
+    getCurrentMinuteSnapshot
+  );
 
   // Generate date list for next 7 days
   const dateOptions = useMemo(() => {
@@ -53,21 +116,21 @@ export default function CinemaShowtime() {
     const weekdays = language === 'vi'
       ? ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
       : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const today = new Date();
+    const today = new Date(getCurrentVietnamWallClockTime());
 
     for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() + i);
+      const d = new Date(today);
+      d.setUTCDate(today.getUTCDate() + i);
 
-      const dayNum = d.getDate();
+      const dayNum = d.getUTCDate();
       const dayStr = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
-      const monthNum = d.getMonth() + 1;
+      const monthNum = d.getUTCMonth() + 1;
       const monthStr = monthNum < 10 ? `0${monthNum}` : `${monthNum}`;
-      const year = d.getFullYear();
+      const year = d.getUTCFullYear();
 
       const queryDate = `${dayStr}/${monthStr}/${year}`;
 
-      let label = weekdays[d.getDay()];
+      let label = weekdays[d.getUTCDay()];
       if (i === 0) label = language === 'vi' ? 'Hôm nay' : 'Today';
 
       list.push({ label, dateNum: dayStr, monthStr, queryDate });
@@ -103,11 +166,24 @@ export default function CinemaShowtime() {
 
     // The API response can be:
     // { movies: [...] } or [...] or { data: [...] }
-    let movies = showtimesData?.movies || showtimesData?.data || showtimesData;
+    const movies = showtimesData?.movies || showtimesData?.data || showtimesData;
     if (!Array.isArray(movies)) return [];
 
-    return movies;
-  }, [showtimesData]);
+    return movies
+      .map((movie: any) => {
+        const showtimes = movie.showtimes || movie.Showtimes || [];
+        const visibleShowtimes = Array.isArray(showtimes)
+          ? sortShowtimesByTime(showtimes.filter((st: any) => isFutureShowtime(st, currentTime)))
+          : [];
+
+        return {
+          ...movie,
+          showtimes: visibleShowtimes,
+          Showtimes: visibleShowtimes,
+        };
+      })
+      .filter((movie: any) => movie.showtimes.length > 0);
+  }, [showtimesData, currentTime]);
 
   const handleSelectShowtime = (movie: any, st: any, cinemaName: string) => {
     // Reset previous booking state
@@ -268,7 +344,7 @@ export default function CinemaShowtime() {
             const showtimes = movie.showtimes || movie.Showtimes || [];
 
             // Group showtimes by cinema (hall)
-            const cinemaGroups: Record<string, { cinemaName: string; showtimes: any[] }> = {};
+            const cinemaGroups: Record<string, CinemaShowtimeGroup> = {};
             showtimes.forEach((st: any) => {
               const cinemaName = st.Cinema?.name || st.cinemaName || 'Phòng chiếu';
               const key = st.cinemaId || cinemaName;
@@ -276,6 +352,10 @@ export default function CinemaShowtime() {
                 cinemaGroups[key] = { cinemaName, showtimes: [] };
               }
               cinemaGroups[key].showtimes.push(st);
+            });
+
+            Object.values(cinemaGroups).forEach(group => {
+              group.showtimes = sortShowtimesByTime(group.showtimes);
             });
 
             return (
@@ -330,9 +410,9 @@ export default function CinemaShowtime() {
                       </View>
                       <View style={styles.timeSlotsRow}>
                         {group.showtimes.map((st: any) => {
-                          const time = new Date(st.showDateTime).toLocaleTimeString(
-                            language === 'vi' ? 'vi-VN' : 'en-US',
-                            { hour: '2-digit', minute: '2-digit' }
+                          const time = formatShowtimeTime(
+                            st.showDateTime,
+                            language === 'vi' ? 'vi-VN' : 'en-US'
                           );
                           return (
                             <TouchableOpacity

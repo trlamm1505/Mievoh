@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useSyncExternalStore } from 'react';
 import {
   View,
   Text,
@@ -26,19 +26,64 @@ type CinemaShowtimeGroup = {
   showtimes: any[];
 };
 
+const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
+const SHOWTIME_DATE_TIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/;
+
+const getShowtimeWallClockTime = (showDateTime?: string | null) => {
+  if (!showDateTime) return NaN;
+
+  const match = showDateTime.match(SHOWTIME_DATE_TIME_REGEX);
+  if (!match) return new Date(showDateTime).getTime();
+
+  const [, year, month, day, hour, minute] = match;
+  return Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute)
+  );
+};
+
+const getCurrentVietnamWallClockTime = () => (
+  Math.floor((new Date().getTime() + VIETNAM_OFFSET_MS) / 60000) * 60000
+);
+
+const formatShowtimeTime = (showDateTime: string | null | undefined, locale: string) => {
+  const match = showDateTime?.match(SHOWTIME_DATE_TIME_REGEX);
+  if (match) return `${match[4]}:${match[5]}`;
+
+  return new Date(showDateTime || 0).toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const isFutureShowtime = (showtime: any, now: number) => {
+  const showtimeTime = getShowtimeWallClockTime(showtime?.showDateTime);
+  return Number.isFinite(showtimeTime) && showtimeTime > now;
+};
+
 const sortShowtimesByTime = (showtimes: any[]) => (
   [...showtimes].sort((a, b) => {
-    const timeA = new Date(a?.showDateTime || 0).getTime();
-    const timeB = new Date(b?.showDateTime || 0).getTime();
+    const timeA = getShowtimeWallClockTime(a?.showDateTime);
+    const timeB = getShowtimeWallClockTime(b?.showDateTime);
     return timeA - timeB;
   })
 );
+
+const subscribeToCurrentMinute = (onStoreChange: () => void) => {
+  const timer = setInterval(onStoreChange, 30000);
+  return () => clearInterval(timer);
+};
+
+const getCurrentMinuteSnapshot = getCurrentVietnamWallClockTime;
 
 const getShowtimeCinemaName = (showtime: any) => (
   showtime?.Cinema?.name || showtime?.cinemaName || showtime?.cinema?.name || 'Cinema'
 );
 
-const getCinemaShowtimeGroups = (complex: any): CinemaShowtimeGroup[] => {
+const getCinemaShowtimeGroups = (complex: any, now: number): CinemaShowtimeGroup[] => {
   const nestedCinemas = complex?.cinemas || complex?.Cinemas;
   if (Array.isArray(nestedCinemas) && nestedCinemas.length > 0) {
     return nestedCinemas
@@ -53,7 +98,7 @@ const getCinemaShowtimeGroups = (complex: any): CinemaShowtimeGroup[] => {
             ...st,
             cinemaId: st?.cinemaId || cinema?.cinemaId || '',
             Cinema: st?.Cinema || cinema,
-          }))),
+          })).filter((st: any) => isFutureShowtime(st, now))),
         };
       })
       .filter((group: CinemaShowtimeGroup) => group.showtimes.length > 0);
@@ -62,7 +107,7 @@ const getCinemaShowtimeGroups = (complex: any): CinemaShowtimeGroup[] => {
   const showtimes = complex?.showtimes || complex?.Showtimes || [];
   const groups = new Map<string, CinemaShowtimeGroup>();
 
-  showtimes.forEach((st: any) => {
+  showtimes.filter((st: any) => isFutureShowtime(st, now)).forEach((st: any) => {
     const cinemaName = getShowtimeCinemaName(st);
     const key = st?.cinemaId || st?.Cinema?.cinemaId || cinemaName;
 
@@ -91,6 +136,11 @@ export default function SelectShowtime() {
   const [loadingShowtimes, setLoadingShowtimes] = useState(false);
   const [selectedShowtimeId, setSelectedShowtimeId] = useState<string | null>(null);
   const [selectedShowtimeInfo, setSelectedShowtimeInfo] = useState<BookingShowtime | null>(null);
+  const currentTime = useSyncExternalStore(
+    subscribeToCurrentMinute,
+    getCurrentMinuteSnapshot,
+    getCurrentMinuteSnapshot
+  );
 
   const movie = state.movie;
 
@@ -100,21 +150,21 @@ export default function SelectShowtime() {
     const weekdays = language === 'vi'
       ? ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
       : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const today = new Date();
+    const today = new Date(getCurrentVietnamWallClockTime());
 
     for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() + i);
+      const d = new Date(today);
+      d.setUTCDate(today.getUTCDate() + i);
 
-      const dayNum = d.getDate();
+      const dayNum = d.getUTCDate();
       const dayStr = dayNum < 10 ? `0${dayNum}` : `${dayNum}`;
-      const monthNum = d.getMonth() + 1;
+      const monthNum = d.getUTCMonth() + 1;
       const monthStr = monthNum < 10 ? `0${monthNum}` : `${monthNum}`;
-      const year = d.getFullYear();
+      const year = d.getUTCFullYear();
 
       const queryDate = `${dayStr}/${monthStr}/${year}`;
 
-      let label = weekdays[d.getDay()];
+      let label = weekdays[d.getUTCDay()];
       if (i === 0) label = language === 'vi' ? 'Hôm nay' : 'Today';
 
       list.push({
@@ -126,7 +176,6 @@ export default function SelectShowtime() {
     }
     return list;
   }, [language]);
-
   // Fetch Showtimes
   useEffect(() => {
     if (!movie?.movieId) return;
@@ -167,15 +216,48 @@ export default function SelectShowtime() {
     setSelectedShowtimeInfo(info);
   };
 
+  const selectedShowtimeIsAvailable = selectedShowtimeInfo
+    ? isFutureShowtime(selectedShowtimeInfo, currentTime)
+    : false;
+
   const handleContinue = () => {
     if (!selectedShowtimeInfo) {
       toast.error(language === 'vi' ? 'Vui lòng chọn suất chiếu' : 'Please select a showtime');
       return;
     }
+    if (!selectedShowtimeIsAvailable) {
+      toast.error(language === 'vi' ? 'Suất chiếu đã qua giờ' : 'This showtime has already passed');
+      return;
+    }
+
     setShowtime(selectedShowtimeInfo);
     setStep(2);
     navigation.goToSelectSeat();
   };
+
+  const visibleCinemaSystems = useMemo(() => {
+    const systems = showtimesData?.cinemaSystems;
+    if (!Array.isArray(systems)) return [];
+
+    return systems
+      .map((system: any) => {
+        const complexes = system?.cinemaComplexes || system?.CinemaComplexes || [];
+        const visibleComplexes = Array.isArray(complexes)
+          ? complexes
+            .map((complex: any) => ({
+              ...complex,
+              showtimeGroups: getCinemaShowtimeGroups(complex, currentTime),
+            }))
+            .filter((complex: any) => complex.showtimeGroups.length > 0)
+          : [];
+
+        return {
+          ...system,
+          visibleComplexes,
+        };
+      })
+      .filter((system: any) => system.visibleComplexes.length > 0);
+  }, [showtimesData, currentTime]);
 
   if (!movie) {
     return (
@@ -295,7 +377,7 @@ export default function SelectShowtime() {
               {language === 'vi' ? 'Đang tìm suất chiếu...' : 'Finding showtimes...'}
             </Text>
           </View>
-        ) : !showtimesData || !showtimesData.cinemaSystems || showtimesData.cinemaSystems.length === 0 ? (
+        ) : visibleCinemaSystems.length === 0 ? (
           <View style={[styles.emptyContainer, isDark && styles.emptyContainerDark]}>
             <Ionicons name="calendar-outline" size={40} color="#9CA3AF" />
             <Text style={styles.emptyText}>
@@ -303,7 +385,7 @@ export default function SelectShowtime() {
             </Text>
           </View>
         ) : (
-          showtimesData.cinemaSystems.map((system: any) => (
+          visibleCinemaSystems.map((system: any) => (
             <View key={system.cinemaSystemId} style={[styles.systemCard, isDark && styles.systemCardDark]}>
               {/* Cinema System Header */}
               <View style={styles.systemHeader}>
@@ -318,7 +400,7 @@ export default function SelectShowtime() {
               </View>
 
               {/* Complexes */}
-              {system.cinemaComplexes.map((complex: any) => (
+              {system.visibleComplexes.map((complex: any) => (
                 <View key={complex.cinemaComplexId} style={[styles.complexCard, isDark && styles.complexCardDark]}>
                   <View style={styles.complexInfo}>
                     <Text style={[styles.complexName, isDark && styles.complexNameDark]}>{complex.name}</Text>
@@ -328,7 +410,7 @@ export default function SelectShowtime() {
                   </View>
 
                   {/* Time Slots */}
-                  {getCinemaShowtimeGroups(complex).map(group => (
+                  {complex.showtimeGroups.map((group: CinemaShowtimeGroup) => (
                     <View key={group.key} style={[styles.cinemaGroupContainer, isDark && styles.cinemaGroupContainerDark]}>
                       <View style={styles.hallLabel}>
                         <Ionicons name="tv-outline" size={13} color="#9CA3AF" />
@@ -339,35 +421,30 @@ export default function SelectShowtime() {
                       <View style={styles.timeSlotsRow}>
                         {group.showtimes.map((st: any) => {
                           const isActive = selectedShowtimeId === st.showtimeId;
-                          const isPast = new Date(st.showDateTime).getTime() < Date.now();
-                          const time = new Date(st.showDateTime).toLocaleTimeString(
-                            language === 'vi' ? 'vi-VN' : 'en-US',
-                            { hour: '2-digit', minute: '2-digit' }
+                          const time = formatShowtimeTime(
+                            st.showDateTime,
+                            language === 'vi' ? 'vi-VN' : 'en-US'
                           );
                           return (
                             <TouchableOpacity
                               key={st.showtimeId}
-                              onPress={() => !isPast && handleSelectShowtime(st, complex, group.cinemaName)}
-                              disabled={isPast}
-                              activeOpacity={isPast ? 1 : 0.7}
+                              onPress={() => handleSelectShowtime(st, complex, group.cinemaName)}
+                              activeOpacity={0.7}
                               style={[
                                 styles.timeSlot,
                                 isDark && !isActive && styles.timeSlotDark,
                                 isActive && styles.timeSlotActive,
-                                isPast && (isDark ? styles.timeSlotDisabledDark : styles.timeSlotDisabled),
                               ]}
                             >
                               <Text style={[
                                 styles.timeSlotTime,
                                 isActive && styles.timeSlotTimeActive,
-                                isPast && styles.timeSlotTextDisabled,
                               ]}>
                                 {time}
                               </Text>
                               <Text style={[
                                 styles.timeSlotFormat,
                                 isActive && styles.timeSlotFormatActive,
-                                isPast && styles.timeSlotTextDisabled,
                               ]}>
                                 {st.format || '2D'}
                               </Text>
@@ -385,16 +462,16 @@ export default function SelectShowtime() {
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      {selectedShowtimeInfo && (
+      {selectedShowtimeInfo && selectedShowtimeIsAvailable && (
         <View style={[styles.bottomBar, isDark && styles.bottomBarDark]}>
           <View style={styles.bottomBarInfo}>
             <Text style={[styles.bottomBarLabel, isDark && styles.bottomBarLabelDark]}>
               {selectedShowtimeInfo.cinemaComplexName}
             </Text>
             <Text style={styles.bottomBarTime}>
-              {new Date(selectedShowtimeInfo.showDateTime).toLocaleTimeString(
-                language === 'vi' ? 'vi-VN' : 'en-US',
-                { hour: '2-digit', minute: '2-digit' }
+              {formatShowtimeTime(
+                selectedShowtimeInfo.showDateTime,
+                language === 'vi' ? 'vi-VN' : 'en-US'
               )}
               {' • '}
               {selectedShowtimeInfo.format}
