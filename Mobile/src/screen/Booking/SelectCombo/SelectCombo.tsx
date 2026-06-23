@@ -15,6 +15,7 @@ import { useAppNavigation } from '../../../navigation/navigation';
 import { useBooking } from '../../../contextAPI/Booking/BookingContext';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
+import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 import { getFoodsByComplexApi, Food } from '../../../axios/booking';
 import { toast } from '../../../components/Toast/Toast';
 
@@ -57,19 +58,25 @@ export default function SelectCombo() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+  const { isLoggedIn } = useAuth();
 
   const [foods, setFoods] = useState<Food[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const showtime = state.showtime;
   const selectedFoods = state.selectedFoods;
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+    }
+  }, [isLoggedIn]);
+
   // Fetch foods
   useEffect(() => {
-    if (!showtime?.cinemaComplexId) {
-      setLoading(false);
-      return;
-    }
+    if (!isLoggedIn) return;
+    if (!showtime?.cinemaComplexId) return;
 
     const fetchFoods = async () => {
       setLoading(true);
@@ -90,7 +97,7 @@ export default function SelectCombo() {
     };
 
     fetchFoods();
-  }, [showtime?.cinemaComplexId]);
+  }, [isLoggedIn, showtime?.cinemaComplexId]);
 
   const getQuantity = (foodId: string): number => {
     const found = selectedFoods.find(f => f.food.foodId === foodId);
@@ -110,11 +117,23 @@ export default function SelectCombo() {
   };
 
   const handleContinue = () => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+      return;
+    }
+
     setStep(4);
     navigation.goToPayment();
   };
 
   const handleSkip = () => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+      return;
+    }
+
     setStep(4);
     navigation.goToPayment();
   };

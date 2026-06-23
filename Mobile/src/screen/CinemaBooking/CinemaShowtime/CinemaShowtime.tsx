@@ -15,6 +15,7 @@ import { useAppNavigation } from '../../../navigation/navigation';
 import { useBooking, BookingMovie, BookingShowtime } from '../../../contextAPI/Booking/BookingContext';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
+import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 import { getShowtimesByComplexApi } from '../../../axios/cinemas';
 import { useLocalSearchParams } from 'expo-router';
 import { toast } from '../../../components/Toast/Toast';
@@ -85,6 +86,7 @@ export default function CinemaShowtime() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+  const { isLoggedIn } = useAuth();
 
   // Get complex info from route params
   const params = useLocalSearchParams<{
@@ -138,9 +140,16 @@ export default function CinemaShowtime() {
     return list;
   }, [language]);
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+    }
+  }, [isLoggedIn]);
+
   // Fetch showtimes by complex
   useEffect(() => {
-    if (!complexId) return;
+    if (!isLoggedIn || !complexId) return;
 
     const fetchData = async () => {
       setLoading(true);
@@ -158,7 +167,7 @@ export default function CinemaShowtime() {
     };
 
     fetchData();
-  }, [complexId, selectedDateIndex, dateOptions]);
+  }, [isLoggedIn, complexId, selectedDateIndex, dateOptions]);
 
   // Parse movie list from showtimes data
   const movieList = useMemo(() => {
@@ -186,6 +195,12 @@ export default function CinemaShowtime() {
   }, [showtimesData, currentTime]);
 
   const handleSelectShowtime = (movie: any, st: any, cinemaName: string) => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+      return;
+    }
+
     // Reset previous booking state
     resetBooking();
 

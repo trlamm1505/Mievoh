@@ -15,6 +15,7 @@ import { useAppNavigation } from '../../../navigation/navigation';
 import { useBooking, BookingShowtime } from '../../../contextAPI/Booking/BookingContext';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
+import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 import { getShowtimesByMovieApi } from '../../../axios/movie';
 import { toast } from '../../../components/Toast/Toast';
 
@@ -130,6 +131,7 @@ export default function SelectShowtime() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+  const { isLoggedIn } = useAuth();
 
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
   const [showtimesData, setShowtimesData] = useState<any>(null);
@@ -176,9 +178,16 @@ export default function SelectShowtime() {
     }
     return list;
   }, [language]);
+  useEffect(() => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+    }
+  }, [isLoggedIn]);
+
   // Fetch Showtimes
   useEffect(() => {
-    if (!movie?.movieId) return;
+    if (!isLoggedIn || !movie?.movieId) return;
 
     const fetchShowtimes = async () => {
       setShowtimesData(null);
@@ -198,9 +207,15 @@ export default function SelectShowtime() {
     };
 
     fetchShowtimes();
-  }, [movie?.movieId, selectedDateIndex, dateOptions]);
+  }, [isLoggedIn, movie?.movieId, selectedDateIndex, dateOptions]);
 
   const handleSelectShowtime = (st: any, complex: any, cinemaName?: string) => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+      return;
+    }
+
     const info: BookingShowtime = {
       showtimeId: st.showtimeId,
       showDateTime: st.showDateTime,
@@ -221,6 +236,12 @@ export default function SelectShowtime() {
     : false;
 
   const handleContinue = () => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+      return;
+    }
+
     if (!selectedShowtimeInfo) {
       toast.error(language === 'vi' ? 'Vui lòng chọn suất chiếu' : 'Please select a showtime');
       return;

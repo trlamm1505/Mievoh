@@ -68,7 +68,7 @@ export default function Payment() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
-  const { user } = useAuth();
+  const { isLoggedIn } = useAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
@@ -97,6 +97,12 @@ export default function Payment() {
 
   // Fetch vouchers
   const handleOpenVouchers = async () => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để xem mã giảm giá' : 'Please log in to view vouchers');
+      navigation.goToLogin();
+      return;
+    }
+
     setShowVoucherModal(true);
     setLoadingVouchers(true);
     try {
@@ -137,6 +143,12 @@ export default function Payment() {
 
   // Create booking and open payment
   const handlePayNow = async () => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+      return;
+    }
+
     if (!showtime || selectedSeats.length === 0) return;
 
     setIsSubmitting(true);

@@ -14,6 +14,7 @@ import { useAppNavigation } from '../../../navigation/navigation';
 import { useBooking } from '../../../contextAPI/Booking/BookingContext';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
+import { useAuth } from '../../../contextAPI/Auth/AuthContext';
 import { getSeatsStatusApi, SeatStatus } from '../../../axios/booking';
 import { toast } from '../../../components/Toast/Toast';
 
@@ -42,6 +43,7 @@ export default function SelectSeat() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+  const { isLoggedIn } = useAuth();
 
   const [allSeats, setAllSeats] = useState<SeatStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,9 +51,16 @@ export default function SelectSeat() {
   const showtime = state.showtime;
   const selectedSeats = state.selectedSeats;
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+    }
+  }, [isLoggedIn]);
+
   // Fetch seats
   useEffect(() => {
-    if (!showtime?.showtimeId) return;
+    if (!isLoggedIn || !showtime?.showtimeId) return;
 
     const fetchSeats = async () => {
       setLoading(true);
@@ -72,7 +81,7 @@ export default function SelectSeat() {
     };
 
     fetchSeats();
-  }, [showtime?.showtimeId]);
+  }, [isLoggedIn, showtime?.showtimeId]);
 
   // Group seats by row (first char of name)
   const seatRows = useMemo(() => {
@@ -112,6 +121,12 @@ export default function SelectSeat() {
   const isSelected = (seatId: string) => selectedSeats.some(s => s.seatId === seatId);
 
   const handleToggleSeat = (seat: SeatStatus) => {
+    if (!isLoggedIn) {
+      toast.error(language === 'vi' ? 'Vui lòng đăng nhập để đặt vé' : 'Please log in to book tickets');
+      navigation.goToLogin();
+      return;
+    }
+
     if (seat.status === 'SOLD' || seat.status === 'HELD') return;
 
     if (isSelected(seat.seatId)) {
