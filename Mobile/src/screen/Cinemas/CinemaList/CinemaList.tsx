@@ -16,7 +16,6 @@ interface DisplayBranch {
   address: string;
   phone: string;
   city: string;
-  rating: number;
   priceRange: string;
   image: string;
   chainName: string;
@@ -118,7 +117,6 @@ export default function CinemaList() {
                 address: comp.address || '',
                 phone,
                 city,
-                rating: parseFloat((rating + (idx % 3) * 0.1 - 0.1).toFixed(1)),
                 priceRange,
                 image: randomImage,
                 chainName: sys.name || 'Rạp',
@@ -171,7 +169,7 @@ export default function CinemaList() {
         branchesList.push(branch);
       });
     });
-    return branchesList.sort((a, b) => b.rating - a.rating);
+    return branchesList;
   }, [filteredChains]);
 
   const displayBranches = useMemo(() => {
@@ -180,7 +178,7 @@ export default function CinemaList() {
     }
     const chain = filteredChains.find(c => c.id === selectedChainId);
     if (!chain) return [];
-    return [...chain.branches].sort((a, b) => b.rating - a.rating);
+    return chain.branches;
   }, [selectedChainId, allMatchingBranches, filteredChains]);
 
   return (
@@ -363,19 +361,11 @@ export default function CinemaList() {
                     {branch.name}
                   </Text>
 
-                  {/* Rating & Price */}
+                  {/* Price */}
                   <View className="flex-row items-center mb-1.5">
-                    <Text className="text-yellow-500 text-[10px] mr-1">⭐</Text>
-                    <Text 
-                      style={{ color: isDark ? '#9CA3AF' : '#4B5563' }}
-                      className="text-[11px] font-semibold mr-2.5"
-                    >
-                      {branch.rating}
-                    </Text>
-                    <Text className="text-gray-300 text-xs mr-2.5">|</Text>
                     <Text 
                       style={{ color: isDark ? '#9CA3AF' : '#9CA3AF' }}
-                      className="text-[10px] font-medium" 
+                      className="text-[10px] font-semibold" 
                       numberOfLines={1}
                     >
                       {branch.priceRange}
