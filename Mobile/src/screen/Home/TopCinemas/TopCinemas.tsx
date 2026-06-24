@@ -12,22 +12,12 @@ interface CinemaWithChain {
   address: string;
   chainLogo: string;
   chainName: string;
-  rating: number;
   image: string;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const GAP = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - 32 - 2 * GAP) / 3;
-
-const getStableRating = (id: string) => {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const rating = 4.2 + (Math.abs(hash) % 8) / 10;
-  return Number(rating.toFixed(1));
-};
 
 interface TopCinemasProps {
   onSeeAll?: () => void;
@@ -52,12 +42,11 @@ export default function TopCinemas({ onSeeAll }: TopCinemasProps) {
             address: c.address || '',
             chainLogo: c.CinemaSystem?.logo || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=120&q=80',
             chainName: c.CinemaSystem?.name || '',
-            rating: getStableRating(c.cinemaComplexId),
             image: c.CinemaSystem?.logo || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=120&q=80'
           }));
           
-          const sorted = mapped.sort((a, b) => b.rating - a.rating).slice(0, 5);
-          setCinemas(sorted);
+          const first3 = mapped.slice(0, 3);
+          setCinemas(first3);
         } else {
           setCinemas([]);
         }
@@ -103,26 +92,14 @@ export default function TopCinemas({ onSeeAll }: TopCinemasProps) {
               key={cinema.id.toString()}
               style={{ 
                 width: CARD_WIDTH, 
-                height: 160,
+                height: 130,
                 marginRight: index === cinemas.length - 1 ? 0 : GAP,
                 backgroundColor: isDark ? '#1D183B' : '#FFFFFF',
                 borderColor: isDark ? '#2E2856' : '#F3F4F6',
                 borderWidth: 1,
               }}
-              className="p-3 rounded-[22px] shadow-sm items-center"
+              className="p-3 rounded-[22px] shadow-sm items-center justify-center"
             >
-              {/* Rating Tag */}
-              <View 
-                style={{ backgroundColor: isDark ? '#2E2856' : '#F3E8FF' }}
-                className="px-2 py-0.5 rounded-full flex-row items-center justify-center mb-2.5"
-              >
-                <Text 
-                  style={{ color: isDark ? '#9F8CFF' : '#7B61FF' }}
-                  className="text-[10px] font-bold"
-                >
-                  ★ {cinema.rating}
-                </Text>
-              </View>
 
               {/* Circular Logo Image with border frame */}
               <View 
