@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contextAPI/Auth/AuthContext';
@@ -9,13 +9,22 @@ import * as ImagePicker from 'expo-image-picker';
 import { toast } from '../../components/Toast/Toast';
 import { useTheme } from '../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../contextAPI/Language/LanguageContext';
+import { useFocusEffect } from 'expo-router';
 
 export default function Profile() {
   const navigation = useAppNavigation();
-  const { isLoggedIn, logout, user, updateAvatar } = useAuth();
+  const { isLoggedIn, logout, user, updateAvatar, fetchProfile } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { language, t } = useLanguage();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isLoggedIn) {
+        fetchProfile();
+      }
+    }, [isLoggedIn])
+  );
 
   const handleLoginPress = () => {
     navigation.goToLogin();

@@ -11,6 +11,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateAvatar: (avatarUri: string) => Promise<void>;
   updateUser: (updatedFields: Partial<UserResponse>) => Promise<void>;
+  fetchProfile: () => Promise<void>;
   loading: boolean;
 }
 
@@ -56,51 +57,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  useEffect(() => {
-    // Load login state and user from storage
-    Promise.all([
-      AsyncStorage.getItem('isLoggedIn'),
-      AsyncStorage.getItem('user'),
-    ]).then(async ([isLoggedInVal, userVal]) => {
-      if (isLoggedInVal === 'true') {
-        setIsLoggedIn(true);
-      }
-      if (userVal) {
-        let parsedUser = JSON.parse(userVal);
+  const fetchProfile = async () => {
+    try {
+      const freshProfile = await getProfileApi();
+      const profileData = freshProfile?.data || freshProfile;
+      if (profileData && profileData.email) {
+        let avatarUrl = profileData.avatar;
         try {
-          const localAvatar = await AsyncStorage.getItem(`avatar_${parsedUser.email}`);
+          const localAvatar = await AsyncStorage.getItem(`avatar_${profileData.email}`);
           if (localAvatar) {
-            parsedUser.avatar = localAvatar;
+            avatarUrl = localAvatar;
           }
         } catch (e) {
           console.error('Error loading local avatar', e);
         }
-        setUser(parsedUser);
 
-        // Fetch fresh profile from backend
-        if (isLoggedInVal === 'true') {
-          try {
-            const freshProfile = await getProfileApi();
-            const profileData = freshProfile?.data || freshProfile;
-            if (profileData && profileData.email) {
-              const syncedUser: UserResponse = {
-                fullName: profileData.fullName,
-                email: profileData.email,
-                avatar: profileData.avatar || parsedUser.avatar,
-                userType: profileData.userType,
-                phoneNumber: profileData.phoneNumber,
-                gender: profileData.gender,
-                dob: profileData.dateOfBirth ? formatDobFromBackend(profileData.dateOfBirth) : (profileData.dob || parsedUser.dob),
-                address: profileData.address,
-                cccd: profileData.cccd,
-              };
-              setUser(syncedUser);
-              await AsyncStorage.setItem('user', JSON.stringify(syncedUser));
-            }
-          } catch (err) {
-            console.log('[AUTH] Failed to sync fresh profile from backend:', err);
-          }
-        }
+        const syncedUser: UserResponse = {
+          fullName: profileData.fullName,
+          email: profileData.email,
+          avatar: avatarUrl,
+          userType: profileData.userType,
+          phoneNumber: profileData.phoneNumber,
+          gender: profileData.gender,
+          dob: profileData.dateOfBirth ? formatDobFromBackend(profileData.dateOfBirth) : null,
+          address: profileData.address,
+          cccd: profileData.cccd,
+        };
+        setUser(syncedUser);
+      }
+    } catch (err) {
+      console.log('[AUTH] Failed to fetch profile from backend:', err);
+    }
+  };
+
+  useEffect(() => {
+    // Load login state from storage
+    AsyncStorage.getItem('isLoggedIn').then(async (isLoggedInVal) => {
+      if (isLoggedInVal === 'true') {
+        setIsLoggedIn(true);
+        // Fetch profile from backend since we do not store it in AsyncStorage
+        await fetchProfile();
       }
       setLoading(false);
     });
@@ -140,7 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         console.error('Error getting local avatar during login', e);
       }
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
     }
 
     await AsyncStorage.setItem('isLoggedIn', 'true');
@@ -152,7 +147,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       const updatedUser = { ...user, avatar: avatarUri };
       setUser(updatedUser);
-      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
       await AsyncStorage.setItem(`avatar_${user.email}`, avatarUri);
     }
   };
@@ -183,7 +177,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
 
         setUser(syncedUser);
-        await AsyncStorage.setItem('user', JSON.stringify(syncedUser));
       } catch (error) {
         console.error('Failed to update profile via API:', error);
         throw error;
@@ -192,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout, updateAvatar, updateUser, loading }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, login, logout, updateAvatar, updateUser, fetchProfile, loading }}>
       {children}
     </AuthContext.Provider>
   );
