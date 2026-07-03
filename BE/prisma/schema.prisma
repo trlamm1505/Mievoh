@@ -1,0 +1,364 @@
+generator client {
+  provider     = "prisma-client-js"
+  output       = "../src/modules-system/prisma/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. NGƯỜI DÙNG & HỆ THỐNG ĐỀ XUẤT
+// ==========================================
+
+model User {
+  email       String  @id @map("_id")
+  fullName    String?
+  phoneNumber String?
+  password    String?
+
+  authProvider String  @default("local") // "local", "google"
+  googleId     String?
+  avatar       String? // Lưu link ảnh đại diện từ Google
+
+  userType String? @default("user") // "user", "staff", "admin"
+
+  // Cụm rạp mà staff được phân công quản lý (chỉ áp dụng cho userType = "staff")
+  cinemaComplexId String?        @db.ObjectId // Dành riêng cho staff để giới hạn khu vực
+  CinemaComplex   CinemaComplex? @relation(fields: [cinemaComplexId], references: [cinemaComplexId])
+
+  // Thông tin cá nhân bổ sung (mặc định null)
+  dateOfBirth DateTime?
+  address     String?
+  gender      String? // "Nam", "Nữ", "Khác"
+  cccd        String? // Căn cước công dân
+
+  rewardPoints Int @default(0) // Điểm tích lũy thành viên
+
+  isSubscribedToPromo Boolean? @default(true)
+  isActive            Boolean? @default(true)
+  favoriteGenres      String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Bookings        Booking[]
+  Reviews         Review[]
+  Recommendations UserRecommendation[]
+  Notifications   Notification[]
+  VoucherUsages   VoucherUsage[]
+}
+
+model Notification {
+  notificationId String   @id @default(auto()) @map("_id") @db.ObjectId
+  email          String
+  title          String
+  message        String
+  link           String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  broadcastId    String?  @db.ObjectId
+
+  User User @relation(fields: [email], references: [email], onDelete: Cascade)
+  Broadcast Broadcast? @relation(fields: [broadcastId], references: [broadcastId], onDelete: Cascade)
+
+  @@index([email])
+  @@index([broadcastId])
+}
+
+model Broadcast {
+  broadcastId String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  message     String
+  link        String?
+  createdByEmail String? // Lưu lại người đã tạo Broadcast này (Email)
+  createdAt   DateTime @default(now())
+
+  Notifications Notification[]
+}
+
+model UserRecommendation {
+  recommendationId String   @id @default(auto()) @map("_id") @db.ObjectId
+  email            String
+  movieId          String   @db.ObjectId
+  matchScore       Float // Điểm phù hợp (0 - 100)
+  isEmailSent      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  User  User  @relation(fields: [email], references: [email], onDelete: Cascade)
+  Movie Movie @relation(fields: [movieId], references: [movieId], onDelete: Cascade)
+
+  @@index([email])
+  @@index([movieId])
+}
+
+// ==========================================
+// 2. PHIM & QUẢNG CÁO & ĐÁNH GIÁ
+// ==========================================
+
+model Movie {
+  movieId        String    @id @default(auto()) @map("_id") @db.ObjectId
+  title_vi       String?
+  title_en       String?
+  trailerUrl     String?
+  imageUrl       String?
+  description_vi String?
+  description_en String?
+  releaseDate    DateTime?
+  duration       Int?
+  language_vi    String?
+  language_en    String?
+  ageRestriction String? // Phân loại độ tuổi: VD C13, C18
+
+  genres   String[] @default([]) // Thể loại phim (Hành động, Viễn tưởng...)
+  director String? // Đạo diễn
+  cast     String? // Diễn viên
+
+  // Các trường tính toán
+  averageRating Float? @default(0)
+  totalReviews  Int?   @default(0)
+
+  // Cờ trạng thái
+  isHot        Boolean? @default(false)
+  isShowing    Boolean? @default(true)
+  isComingSoon Boolean? @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Banners         Banner[]
+  Showtimes       Showtime[]
+  Reviews         Review[]
+  Recommendations UserRecommendation[]
+}
+
+model Banner {
+  bannerId  String   @id @default(auto()) @map("_id") @db.ObjectId
+  movieId   String?  @db.ObjectId
+  imageUrl  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  Movie Movie? @relation(fields: [movieId], references: [movieId], onDelete: Cascade)
+
+  @@index([movieId])
+}
+
+model Review {
+  reviewId  String   @id @default(auto()) @map("_id") @db.ObjectId
+  movieId   String   @db.ObjectId
+  email     String
+  rating    Int // 1 đến 5 sao
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Movie Movie @relation(fields: [movieId], references: [movieId], onDelete: Cascade)
+  User  User? @relation(fields: [email], references: [email], onDelete: Cascade)
+
+  @@index([movieId])
+  @@index([email])
+}
+
+// ==========================================
+// 3. HỆ SINH THÁI RẠP CHIẾU
+// ==========================================
+
+model CinemaSystem {
+  cinemaSystemId String   @id @default(auto()) @map("_id") @db.ObjectId
+  name           String?
+  logo           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  CinemaComplexes CinemaComplex[]
+}
+
+model CinemaComplex {
+  cinemaComplexId String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?
+  address         String?
+  cinemaSystemId  String?  @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  CinemaSystem CinemaSystem? @relation(fields: [cinemaSystemId], references: [cinemaSystemId], onDelete: Cascade)
+  Cinemas      Cinema[]
+  Foods        Food[]
+  Users        User[]
+
+  @@index([cinemaSystemId])
+}
+
+model Cinema {
+  cinemaId        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?
+  cinemaComplexId String?  @db.ObjectId
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  CinemaComplex CinemaComplex? @relation(fields: [cinemaComplexId], references: [cinemaComplexId], onDelete: Cascade)
+  Seats         Seat[]
+  Showtimes     Showtime[]
+
+  @@index([cinemaComplexId])
+}
+
+model Seat {
+  seatId   String @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  seatType String // Thường, VIP, Đôi
+  cinemaId String @db.ObjectId
+
+  Cinema         Cinema          @relation(fields: [cinemaId], references: [cinemaId], onDelete: Cascade)
+  BookingDetails BookingDetail[]
+
+  @@index([cinemaId])
+}
+
+// ==========================================
+// 4. LỊCH CHIẾU & GIAO DỊCH
+// ==========================================
+
+model Showtime {
+  showtimeId   String    @id @default(auto()) @map("_id") @db.ObjectId
+  cinemaId     String?   @db.ObjectId
+  movieId      String?   @db.ObjectId
+  showDateTime DateTime?
+  format       String?   @default("2D Phụ Đề") // Định dạng phim chiếu rạp
+  ticketPrice  Int?
+  status       String?   @default("Active") // Active, Cancelled
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  Cinema   Cinema?   @relation(fields: [cinemaId], references: [cinemaId], onDelete: Cascade)
+  Movie    Movie?    @relation(fields: [movieId], references: [movieId], onDelete: Cascade)
+  Bookings Booking[]
+
+  @@index([movieId])
+  @@index([cinemaId])
+}
+
+model Booking {
+  bookingId   String   @id @default(auto()) @map("_id") @db.ObjectId
+  email       String
+  showtimeId  String   @db.ObjectId
+  bookingDate DateTime @default(now())
+
+  totalPrice     Int     @default(0)
+  paymentStatus  String  @default("Pending") // Pending, Success, Failed
+  paymentMethod  String? // VNPay, MoMo, Cash
+  ticketCode     String? @unique // Mã vé quét QR
+
+  voucherId      String? @db.ObjectId
+  discountAmount Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  User           User            @relation(fields: [email], references: [email], onDelete: Cascade)
+  Showtime       Showtime        @relation(fields: [showtimeId], references: [showtimeId], onDelete: Cascade)
+  BookingDetails BookingDetail[]
+  BookingFoods   BookingFood[]
+
+  @@index([email])
+  @@index([showtimeId])
+}
+
+model BookingDetail {
+  bookingDetailId String @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId       String @db.ObjectId
+  seatId          String @db.ObjectId
+  price           Int // Giá ghế lưu lại lúc mua
+
+  Booking Booking @relation(fields: [bookingId], references: [bookingId], onDelete: Cascade)
+  Seat    Seat    @relation(fields: [seatId], references: [seatId], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([seatId])
+}
+
+// ==========================================
+// 5. ĐỒ ĂN & NƯỚC UỐNG
+// ==========================================
+
+model Food {
+  foodId          String  @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  description     String?
+  price           Int
+  imageUrl        String?
+  isActive        Boolean @default(true)
+  cinemaComplexId String  @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  CinemaComplex CinemaComplex @relation(fields: [cinemaComplexId], references: [cinemaComplexId], onDelete: Cascade)
+  BookingFoods  BookingFood[]
+
+  @@index([cinemaComplexId])
+}
+
+model BookingFood {
+  bookingFoodId String @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId     String @db.ObjectId
+  foodId        String @db.ObjectId
+  quantity      Int    @default(1)
+  price         Int // Giá đồ ăn chốt lúc mua
+
+  Booking Booking @relation(fields: [bookingId], references: [bookingId], onDelete: Cascade)
+  Food    Food    @relation(fields: [foodId], references: [foodId], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([foodId])
+}
+
+// ==========================================
+// 6. MÃ GIẢM GIÁ (VOUCHERS)
+// ==========================================
+
+model Voucher {
+  voucherId       String   @id @default(auto()) @map("_id") @db.ObjectId
+  code            String   @unique // Mã giảm giá, tự động viết hoa toàn bộ
+  discountType    String   // "PERCENTAGE" hoặc "FIXED"
+  discountValue   Int      // Nếu PERCENTAGE: 1-100, Nếu FIXED: Số tiền mặt
+  maxDiscount     Int?     // Số tiền giảm tối đa (Áp dụng cho PERCENTAGE)
+  minPurchase     Int?     // Đơn hàng tối thiểu để được giảm
+  
+  startDate       DateTime
+  endDate         DateTime
+  
+  usageLimit      Int?     // Tổng số lượt dùng mã này
+  usedCount       Int      @default(0)
+  
+  isActive        Boolean  @default(true)
+  
+  cinemaComplexId String?  @db.ObjectId // Nếu null -> Dùng toàn quốc, Nếu có -> Chỉ dùng ở rạp này
+  createdByEmail  String   // Ai là người tạo mã này (Email)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  VoucherUsages   VoucherUsage[]
+  
+  @@index([cinemaComplexId])
+}
+
+model VoucherUsage {
+  usageId   String   @id @default(auto()) @map("_id") @db.ObjectId
+  voucherId String   @db.ObjectId
+  email     String
+  bookingId String   @unique @db.ObjectId // 1 đơn hàng chỉ xài 1 voucher
+  
+  createdAt DateTime @default(now())
+
+  Voucher   Voucher  @relation(fields: [voucherId], references: [voucherId], onDelete: Cascade)
+  User      User     @relation(fields: [email], references: [email], onDelete: Cascade)
+  
+  @@index([voucherId])
+  @@index([email])
+}

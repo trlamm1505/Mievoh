@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # Container chạy Backend NestJS
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mievoh-backend
+    restart: always
+    ports:
+      - "3069:3069"
+    env_file:
+      - .env.docker
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - RABBIT_MQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      - redis-cache
+    networks:
+      - sdn-network
+    volumes:
+      - ./public:/app/public
+
+  # Container chạy Redis Cache độc lập
+  redis-cache:
+    image: redis:7-alpine
+    container_name: mievoh-redis
+    restart: always
+    ports:
+      # Map ra cổng 6382 ở máy host để không đụng hàng với redis có sẵn của bạn
+      - "6382:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    networks:
+      - sdn-network
+
+  # Container chạy RabbitMQ cho Microservices
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: mievoh-rabbitmq
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin123
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    networks:
+      - sdn-network
+
+  # Python Worker xử lý AI
+  python-worker:
+    build:
+      context: ../python-worker
+      dockerfile: Dockerfile
+    container_name: mievoh-python-worker
+    restart: always
+    env_file:
+      - ../python-worker/.env.docker
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - RABBIT_MQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - sdn-network
+
+  # Email Worker rải bom Marketing
+  email-worker:
+    build:
+      context: ../microservice-email
+      dockerfile: Dockerfile
+    container_name: mievoh-email-worker
+    restart: always
+    env_file:
+      - ../microservice-email/.env.docker
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - RABBIT_MQ_URL=amqp://admin:admin123@rabbitmq:5672
+    depends_on:
+      - rabbitmq
+    networks:
+      - sdn-network
+
+networks:
+  sdn-network:
+    driver: bridge
+
+volumes:
+  redis_data:
