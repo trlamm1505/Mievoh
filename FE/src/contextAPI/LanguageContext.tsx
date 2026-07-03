@@ -53,16 +53,6 @@ export const translations = {
         news_cat_interview: "Phỏng vấn",
         news_cat_bts: "Hậu trường",
 
-        // Home / Newsletter
-        newsletter_title: "Nhận Cập Nhật Mới Nhất",
-        newsletter_desc: "Đăng ký bản tin của chúng tôi để luôn được cập nhật về các ưu đãi độc quyền, tin tức điện ảnh và các bộ phim sắp chiếu.",
-        newsletter_success: "✓ Đăng ký thành công! Cảm ơn bạn đã quan tâm đến mievoh.",
-        newsletter_another: "Đăng ký email khác",
-        newsletter_placeholder: "Nhập email của bạn...",
-        newsletter_subscribe: "Đăng ký",
-        newsletter_subscribing: "Đang đăng ký...",
-        newsletter_invalid_email: "Email không hợp lệ. Vui lòng thử lại.",
-
         // Login / Register
         sign_up_title: "Đăng Ký",
         sign_up_subtitle: "Tham gia cộng đồng điện ảnh Mievoh",
@@ -642,16 +632,6 @@ export const translations = {
         news_cat_news: "News",
         news_cat_interview: "Interview",
         news_cat_bts: "Behind the scenes",
-
-        // Home / Newsletter
-        newsletter_title: "Get the Latest Updates",
-        newsletter_desc: "Subscribe to our newsletter to stay updated on exclusive deals, cinema news, and upcoming movies.",
-        newsletter_success: "✓ Subscribed successfully! Thank you for your interest in mievoh.",
-        newsletter_another: "Subscribe another email",
-        newsletter_placeholder: "Enter your email...",
-        newsletter_subscribe: "Subscribe",
-        newsletter_subscribing: "Subscribing...",
-        newsletter_invalid_email: "Invalid email. Please try again.",
 
         // Login / Register
         sign_up_title: "Sign Up",
