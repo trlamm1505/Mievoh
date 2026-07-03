@@ -5,7 +5,6 @@ import HotMovies from "./HotMovies/HotMovies.tsx";
 import Promotions from "./Promotions/Promotions.tsx";
 import Cinemas from "./Cinemas/Cinemas.tsx";
 import News from "./News/News.tsx";
-import Newsletter from "./Newsletter/Newsletter.tsx";
 import ScrollReveal from "../../../components/ScrollReveal/ScrollReveal.tsx";
 
 export default function HomePage() {
@@ -28,9 +27,6 @@ export default function HomePage() {
             </ScrollReveal>
             <ScrollReveal animationClass="animate__fadeInLeftBig">
                 <News />
-            </ScrollReveal>
-            <ScrollReveal animationClass="animate__fadeIn">
-                <Newsletter />
             </ScrollReveal>
         </div>
     );
