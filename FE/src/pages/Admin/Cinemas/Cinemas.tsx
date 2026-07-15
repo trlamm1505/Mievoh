@@ -25,9 +25,10 @@ import { Building2, MapPin } from 'lucide-react';
 import { useLanguage } from '../../../contextAPI/LanguageContext';
 
 const SEAT_TYPES = [
-    { value: 'Standard', label: 'Thường', color: 'bg-gray-200 text-gray-700 border-gray-300' },
+    { value: 'Standard', label: 'Thường', color: 'bg-white text-gray-500 border-gray-200 hover:border-violet-300' },
     { value: 'VIP', label: 'VIP', color: 'bg-amber-100 text-amber-700 border-amber-300' },
     { value: 'Couple', label: 'Đôi', color: 'bg-pink-100 text-pink-700 border-pink-300' },
+    { value: 'Đôi', label: 'Đôi', color: 'bg-pink-100 text-pink-700 border-pink-300' },
 ];
 
 function seatTypeStyle(type: string) {
@@ -199,7 +200,7 @@ export default function CinemasPage() {
                             <Building2 className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-500">{t('adm_assigned_complex')}</p>
+                            <p className="text-xs text-gray-500">Staff</p>
                             <p className="font-semibold text-gray-900">
                                 {staffComplex?.name || (staffReady ? t('adm_not_assigned') : t('adm_loading'))}
                             </p>
@@ -390,10 +391,11 @@ interface SeatManagerProps {
 }
 
 function SeatManager({ cinema, seats, loading, onClose, onChanged }: SeatManagerProps) {
-    const [genRows, setGenRows] = useState(5);
+    const [genFromRow, setGenFromRow] = useState('A');
+    const [genToRow, setGenToRow] = useState('J');
     const [genPerRow, setGenPerRow] = useState(10);
     const [vipRowsStr, setVipRowsStr] = useState('');
-    const [coupleRow, setCoupleRow] = useState('');
+    const [sweetboxRowsStr, setSweetboxRowsStr] = useState('');
     const [generating, setGenerating] = useState(false);
 
     // Manual add seat
@@ -404,23 +406,28 @@ function SeatManager({ cinema, seats, loading, onClose, onChanged }: SeatManager
     const [editingSeat, setEditingSeat] = useState<Seat | null>(null);
 
     const handleGenerate = async () => {
-        if (genRows < 1 || genPerRow < 1) {
-            toast.error('Số hàng và số ghế mỗi hàng phải lớn hơn 0');
+        if (!genFromRow || !genToRow || genPerRow < 1) {
+            toast.error('Vui lòng nhập đầy đủ thông tin hàng ghế');
             return;
         }
+        // Parse vipRows và sweetboxRows: nhập chữ, cách nhau bằng dấu phẩy
         const vipRows = vipRowsStr
             .split(',')
-            .map((s) => parseInt(s.trim(), 10))
-            .filter((n) => !isNaN(n));
-        const couple = parseInt(coupleRow, 10);
+            .map((s) => s.trim().toUpperCase())
+            .filter((s) => s.length === 1 && s >= 'A' && s <= 'Z');
+        const sweetboxRows = sweetboxRowsStr
+            .split(',')
+            .map((s) => s.trim().toUpperCase())
+            .filter((s) => s.length === 1 && s >= 'A' && s <= 'Z');
         setGenerating(true);
         try {
             await generateSeatsApi({
                 cinemaId: cinema.cinemaId,
-                rows: genRows,
+                rowLetterStart: genFromRow.toUpperCase(),
+                rowLetterEnd: genToRow.toUpperCase(),
                 seatsPerRow: genPerRow,
                 vipRows: vipRows.length ? vipRows : undefined,
-                coupleRow: !isNaN(couple) ? couple : undefined,
+                sweetboxRows: sweetboxRows.length ? sweetboxRows : undefined,
             });
             toast.success('Tạo sơ đồ ghế thành công');
             onChanged();
@@ -499,15 +506,27 @@ function SeatManager({ cinema, seats, loading, onClose, onChanged }: SeatManager
                         <h3 className="flex items-center gap-2 text-sm font-semibold text-violet-700 mb-3">
                             <Grid3x3 className="w-4 h-4" /> Tạo sơ đồ ghế tự động
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                             <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Số hàng</label>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Hàng từ</label>
                                 <input
-                                    type="number"
-                                    min={1}
-                                    value={genRows}
-                                    onChange={(e) => setGenRows(Number(e.target.value))}
-                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none"
+                                    type="text"
+                                    maxLength={1}
+                                    value={genFromRow}
+                                    onChange={(e) => setGenFromRow(e.target.value.toUpperCase())}
+                                    placeholder="A"
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none uppercase"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Đến hàng</label>
+                                <input
+                                    type="text"
+                                    maxLength={1}
+                                    value={genToRow}
+                                    onChange={(e) => setGenToRow(e.target.value.toUpperCase())}
+                                    placeholder="J"
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none uppercase"
                                 />
                             </div>
                             <div>
@@ -521,23 +540,23 @@ function SeatManager({ cinema, seats, loading, onClose, onChanged }: SeatManager
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Hàng VIP (vd: 3,4)</label>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Hàng VIP (vd: G,H)</label>
                                 <input
                                     type="text"
                                     value={vipRowsStr}
-                                    onChange={(e) => setVipRowsStr(e.target.value)}
-                                    placeholder="3,4"
-                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none"
+                                    onChange={(e) => setVipRowsStr(e.target.value.toUpperCase())}
+                                    placeholder="G,H"
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none uppercase"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Hàng ghế đôi</label>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Hàng Sweetbox (vd: J)</label>
                                 <input
-                                    type="number"
-                                    value={coupleRow}
-                                    onChange={(e) => setCoupleRow(e.target.value)}
-                                    placeholder="5"
-                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none"
+                                    type="text"
+                                    value={sweetboxRowsStr}
+                                    onChange={(e) => setSweetboxRowsStr(e.target.value.toUpperCase())}
+                                    placeholder="J"
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:ring-2 focus:ring-violet-200 outline-none uppercase"
                                 />
                             </div>
                         </div>

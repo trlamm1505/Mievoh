@@ -191,7 +191,7 @@ export default function FoodsPage() {
                             <Building2 className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-500">{t('adm_assigned_complex')}</p>
+                            <p className="text-xs text-gray-500">Staff</p>
                             <p className="font-semibold text-gray-900">
                                 {staffComplex?.name || (staffReady ? t('adm_not_assigned') : t('adm_loading'))}
                             </p>

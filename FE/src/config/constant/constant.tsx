@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3069/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || 'https://api.mievoh.io.vn/api';
 
 export const APP_CONFIG = {
   name: 'Mievoh',
