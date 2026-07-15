@@ -386,7 +386,7 @@ export default function VouchersManagement() {
             <ConfirmDialog
                 isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
                 title={t('vou_delete_title')}
-                message={t('vou_delete_confirm', { code: deleteTarget?.code })}
+                message={t('vou_delete_confirm', { code: deleteTarget?.code || '' })}
                 confirmText={t('vou_delete_btn')} loading={deleting}
             />
         </div>
