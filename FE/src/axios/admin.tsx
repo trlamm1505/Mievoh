@@ -275,7 +275,7 @@ export const getSeatsApi = async (cinemaId: string): Promise<BaseResponse<Seat[]
 };
 
 /** POST /api/seats/generate - Tạo sơ đồ ghế tự động */
-export const generateSeatsApi = async (data: { cinemaId: string; rows: number; seatsPerRow: number; vipRows?: number[]; coupleRow?: number }): Promise<BaseResponse<Seat[]>> => {
+export const generateSeatsApi = async (data: { cinemaId: string; rowLetterStart: string; rowLetterEnd: string; seatsPerRow: number; vipRows?: string[]; sweetboxRows?: string[] }): Promise<BaseResponse<Seat[]>> => {
     const response = await api.post<BaseResponse<Seat[]>>('/seats/generate', data);
     return response.data;
 };
@@ -498,7 +498,7 @@ export const deleteUserApi = async (email: string): Promise<BaseResponse<any>> =
 // ==========================================
 
 export interface Voucher {
-    _id: string;
+    voucherId: string;
     code: string;
     discountType: 'PERCENTAGE' | 'FIXED';
     discountValue: number;
@@ -557,7 +557,7 @@ export const deleteVoucherApi = async (id: string): Promise<BaseResponse<any>> =
     return response.data;
 };
 
-/** GET /api/vouchers/public - Lấy danh sách mã giảm giá */
+/** GET /api/vouchers/public - Lấy danh sách mã giảm giá đang áp dụng (public) */
 export const getVouchersPublicApi = async (cinemaComplexId?: string): Promise<BaseResponse<Voucher[]>> => {
     const params = cinemaComplexId ? { cinemaComplexId } : undefined;
     const response = await api.get<BaseResponse<any>>('/vouchers/public', { params });
