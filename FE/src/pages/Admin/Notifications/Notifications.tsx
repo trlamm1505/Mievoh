@@ -1,14 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Bell, Send, Link as LinkIcon } from 'lucide-react';
+import { Bell, Send, Link as LinkIcon, Trash2 } from 'lucide-react';
 import { useLanguage } from '../../../contextAPI/LanguageContext';
 import toast from 'react-hot-toast';
 import {
     broadcastNotificationApi,
     getBroadcastsApi,
+    deleteBroadcastApi,
 } from '../../../axios/admin';
 import type { BroadcastNotification } from '../../../axios/admin';
 import Modal from '../components/Modal';
 import Pagination from '../components/Pagination';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function NotificationsManagement() {
     const { t } = useLanguage();
@@ -21,6 +23,10 @@ export default function NotificationsManagement() {
     // Modal
     const [modalOpen, setModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // Delete
+    const [deleteTarget, setDeleteTarget] = useState<BroadcastNotification | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Form
     const [form, setForm] = useState({ title: '', message: '', link: '' });
@@ -66,6 +72,22 @@ export default function NotificationsManagement() {
         }
     };
 
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        const targetId = (deleteTarget as any).broadcastId || deleteTarget._id;
+        setDeleting(true);
+        try {
+            await deleteBroadcastApi(targetId);
+            toast.success('Xóa thông báo thành công');
+            setDeleteTarget(null);
+            fetchBroadcasts();
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Không thể xóa thông báo');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -89,7 +111,7 @@ export default function NotificationsManagement() {
                     </div>
                 ) : (
                     broadcasts.map((b) => (
-                        <div key={b._id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
+                        <div key={(b as any).broadcastId || b._id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
@@ -106,6 +128,13 @@ export default function NotificationsManagement() {
                                         <span>{b.createdAt ? new Date(b.createdAt).toLocaleString('vi-VN') : '—'}</span>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => setDeleteTarget(b)}
+                                    className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-red-600 transition-colors flex-shrink-0"
+                                    title="Xóa thông báo"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
                             </div>
                         </div>
                     ))
@@ -144,6 +173,16 @@ export default function NotificationsManagement() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmDialog
+                isOpen={!!deleteTarget}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={handleDelete}
+                title="Xóa thông báo"
+                message={`Bạn có chắc chắn muốn xóa thông báo "${deleteTarget?.title || ''}" không?`}
+                confirmText="Xóa"
+                loading={deleting}
+            />
         </div>
     );
 }
