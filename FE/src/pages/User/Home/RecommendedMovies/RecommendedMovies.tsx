@@ -4,6 +4,7 @@ import { slickHotMoviesSettings } from "../../../../config/slick/slickConfig.tsx
 import { useLanguage } from "../../../../contextAPI/LanguageContext.tsx";
 import { useTheme } from "../../../../contextAPI/ThemeContext.tsx";
 import { getRecommendedMoviesApi, type RecommendedMovie } from "../../../../axios/profile.tsx";
+import { getNowShowingMoviesApi } from "../../../../axios/movie.tsx";
 import MovieCard from "../../../../components/MovieCard/MovieCard.tsx";
 import { useLocation } from "react-router-dom";
 import ScrollReveal from "../../../../components/ScrollReveal/ScrollReveal.tsx";
@@ -46,26 +47,56 @@ export default function RecommendedMovies() {
                 const res = await getRecommendedMoviesApi();
                 const list = res.data?.data || [];
                 
-                const mapped = list.map((m: RecommendedMovie) => {
-                    let image = m.Movie?.imageUrl || "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80";
-                    if (m.Movie?.imageUrl && !m.Movie.imageUrl.startsWith('http')) {
-                        const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://api.mievoh.io.vn/api';
-                        const domain = apiBase.replace('/api', '');
-                        image = `${domain}/movies/${m.Movie.imageUrl}`;
-                    }
+                if (list.length > 0) {
+                    const mapped = list.map((m: RecommendedMovie) => {
+                        let image = m.Movie?.imageUrl || "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80";
+                        if (m.Movie?.imageUrl && !m.Movie.imageUrl.startsWith('http')) {
+                            const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://api.mievoh.io.vn/api';
+                            const domain = apiBase.replace('/api', '');
+                            image = `${domain}/movies/${m.Movie.imageUrl}`;
+                        }
 
-                    return {
-                        id: m.movieId,
-                        title: m.Movie?.title_vi || "Movie",
-                        title_vi: m.Movie?.title_vi || "Phim",
-                        title_en: m.Movie?.title_vi || "Movie",
-                        image,
-                        rating: m.Movie?.averageRating ?? m.Movie?.averagerating ?? 0,
-                        genres: [],
-                        status: "now_showing",
-                    };
-                });
-                setMovies(mapped);
+                        return {
+                            id: m.movieId,
+                            title: m.Movie?.title_vi || "Movie",
+                            title_vi: m.Movie?.title_vi || "Phim",
+                            title_en: m.Movie?.title_vi || "Movie",
+                            image,
+                            rating: m.Movie?.averageRating ?? m.Movie?.averagerating ?? 0,
+                            genres: [],
+                            status: "now_showing",
+                        };
+                    });
+                    setMovies(mapped);
+                } else {
+                    // Fallback to now showing movies if recommendations are empty
+                    try {
+                        const fallbackRes = await getNowShowingMoviesApi({ page: 1, pageSize: 6 });
+                        const fallbackList = fallbackRes.data?.data || [];
+                        const mappedFallback = fallbackList.map((m: any) => {
+                            let image = m.imageUrl || "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80";
+                            if (m.imageUrl && !m.imageUrl.startsWith('http')) {
+                                const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://api.mievoh.io.vn/api';
+                                const domain = apiBase.replace('/api', '');
+                                image = `${domain}/movies/${m.imageUrl}`;
+                            }
+                            return {
+                                id: m.movieId,
+                                title: m.title_vi || "Movie",
+                                title_vi: m.title_vi || "Phim",
+                                title_en: m.title_en || "Movie",
+                                image,
+                                rating: m.averageRating ?? m.averagerating ?? 0,
+                                genres: m.genres || [],
+                                status: "now_showing",
+                            };
+                        });
+                        setMovies(mappedFallback);
+                    } catch (fallbackErr) {
+                        console.error("Lỗi khi lấy phim đề xuất dự phòng:", fallbackErr);
+                        setMovies([]);
+                    }
+                }
             } catch (err) {
                 console.warn("Lỗi khi lấy danh sách phim đề xuất:", err);
                 setMovies([]);

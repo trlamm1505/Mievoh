@@ -15,6 +15,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Pagination from '../components/Pagination';
 import resolveImageUrl from '../utils/imageUrl';
 import { useLanguage } from '../../../contextAPI/LanguageContext';
+import { getMovieDetailApi } from '../../../axios/movie';
 
 export default function MoviesManagement() {
     const { t } = useLanguage();
@@ -139,28 +140,58 @@ export default function MoviesManagement() {
         setModalOpen(true);
     };
 
-    const openEdit = (movie: Movie) => {
+    const openEdit = async (movie: Movie) => {
         setEditingMovie(movie);
-        setForm({
-            title_vi: movie.title_vi || '',
-            title_en: movie.title_en || '',
-            trailerUrl: movie.trailerUrl || '',
-            description_vi: movie.description_vi || '',
-            description_en: movie.description_en || '',
-            releaseDate: movie.releaseDate ? movie.releaseDate.split('T')[0] : '',
-            duration: movie.duration?.toString() || '',
-            language_vi: movie.language_vi || '',
-            language_en: movie.language_en || '',
-            ageRestriction: movie.ageRestriction || '',
-            genres: movie.genres || '',
-            director: movie.director || '',
-            cast: movie.cast || '',
-            isHot: movie.isHot || false,
-            isShowing: movie.isShowing || false,
-            isComingSoon: movie.isComingSoon || false,
-        });
-        setImageFile(null);
-        setImagePreview(resolveImageUrl(movie.imageUrl));
+        try {
+            const detailRes = await getMovieDetailApi(movie.movieId);
+            const fullMovie = detailRes.data || movie;
+
+            setForm({
+                title_vi: fullMovie.title_vi || '',
+                title_en: fullMovie.title_en || '',
+                trailerUrl: fullMovie.trailerUrl || '',
+                description_vi: fullMovie.description_vi || '',
+                description_en: fullMovie.description_en || '',
+                releaseDate: fullMovie.releaseDate ? fullMovie.releaseDate.split('T')[0] : '',
+                duration: fullMovie.duration?.toString() || '',
+                language_vi: fullMovie.language_vi || '',
+                language_en: fullMovie.language_en || '',
+                ageRestriction: fullMovie.ageRestriction || '',
+                genres: Array.isArray(fullMovie.genres)
+                    ? (fullMovie.genres as string[]).join(', ')
+                    : ((fullMovie.genres as any) || ''),
+                director: fullMovie.director || '',
+                cast: fullMovie.cast || '',
+                isHot: fullMovie.isHot || false,
+                isShowing: fullMovie.isShowing || false,
+                isComingSoon: fullMovie.isComingSoon || false,
+            });
+            setImageFile(null);
+            setImagePreview(resolveImageUrl(fullMovie.imageUrl));
+        } catch {
+            setForm({
+                title_vi: movie.title_vi || '',
+                title_en: movie.title_en || '',
+                trailerUrl: movie.trailerUrl || '',
+                description_vi: movie.description_vi || '',
+                description_en: movie.description_en || '',
+                releaseDate: movie.releaseDate ? movie.releaseDate.split('T')[0] : '',
+                duration: movie.duration?.toString() || '',
+                language_vi: movie.language_vi || '',
+                language_en: movie.language_en || '',
+                ageRestriction: movie.ageRestriction || '',
+                genres: Array.isArray(movie.genres)
+                    ? (movie.genres as string[]).join(', ')
+                    : ((movie.genres as any) || ''),
+                director: movie.director || '',
+                cast: movie.cast || '',
+                isHot: movie.isHot || false,
+                isShowing: movie.isShowing || false,
+                isComingSoon: movie.isComingSoon || false,
+            });
+            setImageFile(null);
+            setImagePreview(resolveImageUrl(movie.imageUrl));
+        }
         setModalOpen(true);
     };
 
@@ -644,7 +675,7 @@ export default function MoviesManagement() {
                             <div><span className="text-gray-500">Thời lượng:</span> <span className="font-medium">{detailMovie.duration ? `${detailMovie.duration} phút` : '—'}</span></div>
                             <div><span className="text-gray-500">Ngày phát hành:</span> <span className="font-medium">{detailMovie.releaseDate ? new Date(detailMovie.releaseDate).toLocaleDateString('vi-VN') : '—'}</span></div>
                             <div><span className="text-gray-500">Đạo diễn:</span> <span className="font-medium">{detailMovie.director || '—'}</span></div>
-                            <div><span className="text-gray-500">Thể loại:</span> <span className="font-medium">{detailMovie.genres || '—'}</span></div>
+                            <div><span className="text-gray-500">Thể loại:</span> <span className="font-medium">{Array.isArray(detailMovie.genres) ? (detailMovie.genres as string[]).join(', ') : (detailMovie.genres || '—')}</span></div>
                             <div className="col-span-2"><span className="text-gray-500">Diễn viên:</span> <span className="font-medium">{detailMovie.cast || '—'}</span></div>
                         </div>
                         {detailMovie.description_vi && (

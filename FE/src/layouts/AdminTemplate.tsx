@@ -109,7 +109,9 @@ export default function AdminTemplate() {
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-gray-100">
           <img src="/mievoh_logo_rounded.svg" alt="Mievoh" className="w-9 h-9" />
-          <span className="text-lg font-bold text-violet-700">{t('admin_title')}</span>
+          <span className="text-lg font-bold text-violet-700">
+            {role === 'admin' ? t('admin_title_admin') : t('admin_title_staff')}
+          </span>
           <button className="lg:hidden ml-auto p-1" onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5 text-gray-500" />
           </button>
