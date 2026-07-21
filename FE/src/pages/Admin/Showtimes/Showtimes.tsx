@@ -94,13 +94,47 @@ export default function ShowtimesPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [complexId]);
 
+    const formatToLocalDatetime = (dt: string | null) => {
+        if (!dt) return '';
+        const d = new Date(dt);
+        if (isNaN(d.getTime())) return '';
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
     const loadShowtimes = async () => {
         if (!complexId) return;
         setLoading(true);
         try {
             // Use showtimes/complex/:complexId to get all showtimes for a complex
-            const res = await api.get<{ data: Showtime[] }>(`/showtimes/complex/${complexId}`);
-            setShowtimes(res.data.data || []);
+            const res = await api.get<any>(`/showtimes/complex/${complexId}`);
+            const flatShowtimes: Showtime[] = [];
+            const rawData = res.data.data || [];
+            rawData.forEach((movie: any) => {
+                (movie.showtimes || []).forEach((st: any) => {
+                    flatShowtimes.push({
+                        showtimeId: st.showtimeId,
+                        cinemaId: st.cinemaId,
+                        movieId: movie.movieId,
+                        showDateTime: st.showDateTime,
+                        format: st.format,
+                        ticketPrice: st.ticketPrice,
+                        status: st.status || 'Active',
+                        Movie: {
+                            movieId: movie.movieId,
+                            title_vi: movie.title_vi,
+                            title_en: movie.title_en,
+                            imageUrl: movie.imageUrl,
+                            ageRestriction: movie.ageRestriction,
+                        } as any,
+                        Cinema: {
+                            cinemaId: st.cinemaId,
+                            name: st.cinemaName,
+                        } as any
+                    } as Showtime);
+                });
+            });
+            setShowtimes(flatShowtimes);
         } catch {
             // If the endpoint doesn't exist, set empty
             setShowtimes([]);
@@ -127,7 +161,7 @@ export default function ShowtimesPage() {
         setForm({
             cinemaId: st.cinemaId || '',
             movieId: st.movieId || '',
-            showDateTime: st.showDateTime ? st.showDateTime.slice(0, 16) : '',
+            showDateTime: formatToLocalDatetime(st.showDateTime),
             format: st.format || '2D Phụ Đề',
             ticketPrice: st.ticketPrice?.toString() || '',
             status: st.status || 'Active',
@@ -143,25 +177,46 @@ export default function ShowtimesPage() {
         }
         setSaving(true);
         try {
-            const payload = {
-                cinemaId: form.cinemaId,
-                movieId: form.movieId,
-                showDateTime: new Date(form.showDateTime).toISOString(),
-                format: form.format || undefined,
-                ticketPrice: form.ticketPrice ? Number(form.ticketPrice) : undefined,
-            };
-
             if (editing) {
-                await updateShowtimeApi({ showtimeId: editing.showtimeId, ...payload, status: form.status });
+                const payload: any = {};
+                if (form.cinemaId !== (editing.cinemaId || '')) {
+                    payload.cinemaId = form.cinemaId;
+                }
+                if (form.movieId !== (editing.movieId || '')) {
+                    payload.movieId = form.movieId;
+                }
+                const originalLocalStr = formatToLocalDatetime(editing.showDateTime);
+                if (form.showDateTime !== originalLocalStr) {
+                    payload.showDateTime = new Date(form.showDateTime).toISOString();
+                }
+                if (form.format !== (editing.format || '')) {
+                    payload.format = form.format;
+                }
+                const originalPrice = editing.ticketPrice?.toString() || '';
+                if (form.ticketPrice !== originalPrice) {
+                    payload.ticketPrice = form.ticketPrice ? Number(form.ticketPrice) : undefined;
+                }
+                if (form.status !== (editing.status || 'Active')) {
+                    payload.status = form.status;
+                }
+
+                await updateShowtimeApi({ showtimeId: editing.showtimeId, ...payload });
                 toast.success('Cập nhật suất chiếu thành công');
             } else {
+                const payload = {
+                    cinemaId: form.cinemaId,
+                    movieId: form.movieId,
+                    showDateTime: new Date(form.showDateTime).toISOString(),
+                    format: form.format || undefined,
+                    ticketPrice: form.ticketPrice ? Number(form.ticketPrice) : undefined,
+                };
                 await createShowtimeApi(payload);
                 toast.success('Tạo suất chiếu thành công');
             }
             setModalOpen(false);
             loadShowtimes();
-        } catch {
-            toast.error('Lưu suất chiếu thất bại');
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || 'Lưu suất chiếu thất bại');
         } finally {
             setSaving(false);
         }

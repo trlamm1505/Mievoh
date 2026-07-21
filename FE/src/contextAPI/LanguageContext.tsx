@@ -383,6 +383,8 @@ export const translations = {
         admin_recommendations: "Recommend & Email",
         admin_statistics: "Thống kê",
         admin_title: "Mievoh Staff",
+        admin_title_admin: "Mievoh Admin",
+        admin_title_staff: "Mievoh Staff",
         admin_access_denied: "Truy cập bị từ chối",
         admin_no_permission: "Bạn không có quyền truy cập trang quản trị.",
         admin_switch_member: "Member",
@@ -622,6 +624,7 @@ export const translations = {
         rec_cron_name: "Tên định danh",
         rec_delete_cron: "Xóa CronJob",
         rec_delete_cron_msg: "Bạn có chắc chắn muốn xóa CronJob này?",
+        rec_next_run: "Lần chạy tiếp theo",
     },
     en: {
         // Navigation / Header
@@ -1004,6 +1007,8 @@ export const translations = {
         admin_recommendations: "Recommend & Email",
         admin_statistics: "Statistics",
         admin_title: "Mievoh Staff",
+        admin_title_admin: "Mievoh Admin",
+        admin_title_staff: "Mievoh Staff",
         admin_access_denied: "Access Denied",
         admin_no_permission: "You do not have permission to access the admin panel.",
         admin_switch_member: "Member",
@@ -1243,6 +1248,7 @@ export const translations = {
         rec_cron_name: "Identifier name",
         rec_delete_cron: "Delete CronJob",
         rec_delete_cron_msg: "Are you sure you want to delete this CronJob?",
+        rec_next_run: "Next Execution",
     }
 };
 
