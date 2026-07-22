@@ -2,9 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getNowShowingMoviesApi, getComingSoonMoviesApi, Movie } from '../../../axios/movie';
-import { GradientText } from '../../../components/GradientComponents/GradientComponents';
 import Search from '../../../components/Search/Search';
-import Button from '../../../components/Button/Button';
 import { useAppNavigation } from '../../../navigation/navigation';
 import { useTheme } from '../../../contextAPI/Theme/ThemeContext';
 import { useLanguage } from '../../../contextAPI/Language/LanguageContext';
@@ -37,7 +35,6 @@ export default function MovieList() {
   const [moviesList, setMoviesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'now_showing' | 'coming_soon'>('now_showing');
   const [selectedGenre, setSelectedGenre] = useState<string>('');
 
   const { theme } = useTheme();
@@ -56,39 +53,29 @@ export default function MovieList() {
         const comingSoon = comingSoonRes?.data || [];
 
         const mapMovie = (m: any, status: 'now_showing' | 'coming_soon') => {
-          let genresArr: string[] = [];
-          if (Array.isArray(m.genres)) {
-            genresArr = m.genres;
-          } else if (typeof m.genres === 'string') {
-            genresArr = m.genres.split(',').map((g: string) => m.genres?.trim());
-          }
-
-          let image = m.imageUrl || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80';
+          const originalGenres = m.genres || m.Genre?.split(',').map((g: string) => g.trim()) || [];
           return {
-            id: m.movieId,
-            title_vi: m.title_vi || m.title_en || 'Phim',
-            title_en: m.title_en || m.title_vi || 'Movie',
-            image,
-            rating: m.averageRating ?? 4.5,
-            genres: genresArr,
+            id: m.movieId || m.id,
+            title_vi: m.title || m.title_vi || 'Phim mới',
+            title_en: m.title_en || m.title || 'New Movie',
+            genres: originalGenres,
+            rating: m.rating ? parseFloat(m.rating.toFixed(1)) : 4.5,
+            rawReleaseDate: m.releaseDate,
+            duration: m.duration || '120 phút',
             status,
-            rawReleaseDate: m.releaseDate
+            image: m.imageUrl || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=600&q=80',
           };
         };
 
-        const mappedNowShowing = nowShowing
-          .map((m: any) => mapMovie(m, 'now_showing'))
-          .sort((a, b) => b.rating - a.rating);
-        const mappedComingSoon = comingSoon
-          .map((m: any) => mapMovie(m, 'coming_soon'))
-          .sort((a, b) => b.rating - a.rating);
+        const mappedNowShowing = nowShowing.map((m: any) => mapMovie(m, 'now_showing'));
+        const mappedComingSoon = comingSoon.map((m: any) => mapMovie(m, 'coming_soon'));
 
         const combined = [...mappedNowShowing, ...mappedComingSoon];
+        const uniqueMovies = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
 
-        setMoviesList(combined);
-      } catch (err) {
-        console.error('Lỗi khi lấy danh sách phim từ API:', err);
-        setMoviesList([]);
+        setMoviesList(uniqueMovies);
+      } catch (error) {
+        console.error('Lỗi khi tải danh sách phim:', error);
       } finally {
         setLoading(false);
       }
@@ -111,11 +98,10 @@ export default function MovieList() {
     return moviesList.filter((movie) => {
       const activeTitle = language === 'vi' ? movie.title_vi : movie.title_en;
       const matchesSearch = activeTitle.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = movie.status === selectedStatus;
       const matchesGenre = selectedGenre === '' || (movie.genres && movie.genres.includes(selectedGenre));
-      return matchesSearch && matchesStatus && matchesGenre;
+      return matchesSearch && matchesGenre;
     });
-  }, [searchQuery, selectedStatus, selectedGenre, moviesList, language]);
+  }, [searchQuery, selectedGenre, moviesList, language]);
 
   const translateGenre = (genre: string) => {
     if (language === 'en') return genre;
@@ -132,33 +118,6 @@ export default function MovieList() {
         onChangeText={setSearchQuery}
         placeholder={language === 'vi' ? 'Tìm kiếm phim...' : 'Search movies...'}
       />
-
-      {/* Status Toggle Buttons */}
-      <View className="flex-row px-4 mb-4 gap-3">
-        <Button
-          onPress={() => {
-            setSelectedStatus('now_showing');
-            setSelectedGenre('');
-          }}
-          variant={selectedStatus === 'now_showing' ? 'primary' : 'outline'}
-          size="sm"
-          className="flex-1"
-        >
-          {t('now_showing_filter')}
-        </Button>
-
-        <Button
-          onPress={() => {
-            setSelectedStatus('coming_soon');
-            setSelectedGenre('');
-          }}
-          variant={selectedStatus === 'coming_soon' ? 'primary' : 'outline'}
-          size="sm"
-          className="flex-1"
-        >
-          {t('coming_soon_filter')}
-        </Button>
-      </View>
 
       {/* Genres Filter Bar */}
       <View className="mb-4">
@@ -237,14 +196,14 @@ export default function MovieList() {
           contentContainerStyle={{ paddingBottom: 40 }}
         >
           <View className="flex-row flex-wrap px-4 gap-y-4 justify-between">
-            {filteredMovies.map((movie) => {
+            {filteredMovies.map((movie, idx) => {
               const displayDate = movie.rawReleaseDate 
                 ? new Date(movie.rawReleaseDate).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US') 
                 : undefined;
 
               return (
                 <TouchableOpacity
-                  key={movie.id.toString()}
+                  key={`${movie.id}-${idx}`}
                   onPress={() => navigation.goToMovieDetail(movie.id.toString())}
                   style={{
                     width: CARD_WIDTH,
